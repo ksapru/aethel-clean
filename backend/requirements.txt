@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+python-multipart
+pypdf
+pandas
+openpyxl
+chromadb
+google-generativeai
+langchain
+langchain-google-genai
+langchain-anthropic
+python-dotenv
+pytest
+langchain-openai
+hipporag

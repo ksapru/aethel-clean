@@ -1,0 +1,705 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[review]{acl}
+\usepackage{latexsym}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{url}
+
+\usepackage{listings}
+\usepackage{enumitem} % Added to tightly control whitespace in bullet points
+\usepackage{float}    % Provides [H] to place figures exactly here
+\usepackage{needspace}% \Needspace to avoid cramped in-column placement
+\usepackage{dblfloatfix} % Improve placement of two-column floats (table*/figure*)
+
+% --- Visual/formatting packages (requested in Phase 2/3)
+\usepackage[table]{xcolor}
+\usepackage{colortbl}
+\usepackage{tcolorbox}
+
+% --- Figures / plots
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows, positioning, fit, backgrounds, arrows.meta, calc, shadows}
+\usepackage{pgfplots}
+\usepgfplotslibrary{groupplots,fillbetween}
+\pgfplotsset{compat=1.18}
+
+% --- Aethel palette
+\definecolor{AethelNavy}{HTML}{0D253D}
+\definecolor{AethelIndigo}{HTML}{533AFD}
+\definecolor{AethelCream}{HTML}{FDFBF7}
+
+\definecolor{aethelpurple}{RGB}{89,65,242}
+\definecolor{hippogreen}{RGB}{112,180,105}
+\definecolor{densegray}{RGB}{225,225,225}
+
+% Back-compat color names used elsewhere in the draft
+\colorlet{aethelNavy}{AethelNavy}
+\colorlet{aethelPurple}{AethelIndigo}
+\definecolor{aethelBlue}{RGB}{37,99,235}
+\definecolor{aethelTeal}{RGB}{20,184,166}
+\definecolor{aethelGold}{RGB}{245,158,11}
+\colorlet{aethelGreen}{aethelTeal}% used in Fig.~\ref{fig:aethel_pipeline}
+
+% Section header styling
+% (kept default ACL/LaTeX heading colors; no custom coloring)
+
+% Table rule color
+\arrayrulecolor{AethelNavy}
+
+\renewcommand{\UrlFont}{\ttfamily\small}
+
+\title{Aethel: A Reproducible Graph-Retrieval Framework for Multi-Hop Financial Diligence}
+
+\author{Anonymous Authors \\
+  Affiliation Anonymous \\
+  \texttt{anonymous@submission.org} \\}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+
+Secondary private equity (PE) transactions require the rapid synthesis of fragmented and unstructured financial disclosures. Traditional Dense Retrieval-Augmented Generation (RAG) frameworks exhibit structural vulnerabilities in this domain: critical financial metrics and their corresponding entity anchors are frequently distributed across disjoint documents, yielding negligible semantic or lexical overlap. To address this, we present \textbf{Aethel}, a framework that combines a bipartite Personalized PageRank (PPR) graph-retrieval engine inspired by HippoRAG v2 \cite{gutierrez2025hipporag2} with an orchestrated parallel agent swarm. Aethel models document corpora as bipartite entity-passage graphs, leveraging Personalized PageRank (PPR) walks \cite{page1999pagerank} to resolve relational multi-hop queries.
+
+Evaluated on 200-question random samples from the official MuSiQue and 2WikiMultiHopQA validation splits, our coreference-aware Bipartite Coreference Teleportation (BCT) layer achieves \textbf{HR@5\,=\,100\%} on 2WikiMultiHopQA and \textbf{HR@5\,=\,88.5\%} on MuSiQue, outperforming vanilla graph retrieval (99.5\% and 87.5\%) and sparse lexical (99.0\% and 84.5\%) baselines. Under these closed-set, small-candidate conditions, the dense bi-encoder baseline (all-MiniLM-L6-v2) achieves high recall (HR@5 of 99.5\% and 96.0\%), but Aethel operates purely on bipartite graph topologies without relying on continuous semantic embedding spaces. BCT improves recall coverage at the cost of precision@1 (HR@1: 78.5\% vs.~83.0\% for PPR alone), a tradeoff that is \emph{appropriate} for multi-passage diligence workflows where downstream agents require all supporting evidence before synthesis, not just the single top-ranked passage. All results are computed by \texttt{public\_benchmark.py} against real HuggingFace data; code is released and results are deterministically reproducible.
+
+\end{abstract}
+
+\section{Introduction}
+
+The underwriting process for secondary private equity (PE) market transactions demands absolute factual precision under highly compressed deal timelines. Investment analysts must cross-reference private Limited Partner (LP) letters, multi-sheet financial workbooks, capitalization structures, and public SEC filings to evaluate asset values, outstanding unfunded liabilities, and structural fund rules. 
+
+From an information retrieval standpoint, executing deep operational due diligence requires resolving cross-document, multi-hop relational dependencies. Standard Dense Retrieval-Augmented Generation (RAG) paradigms \cite{lewis2020rag, karpukhin2020dpr} map individual text chunks into a continuous embedding space to evaluate cosine similarity against a query vector. While effective for single-hop semantic queries, dense bi-encoders possess structural limits when target metrics and their anchoring entities are topographically isolated. For example, if a target portfolio company (e.g., \textit{Stripe}) is declared on page 1 of an asset ledger, but the aggregate fund liabilities (e.g., \textit{Unfunded Commitments}) are detailed on page 12, a unified dense query linking the two fails. The distinct textual segments lack lexical or contextual overlap, causing standard dense indices to displace the necessary context chunks, which subsequently leads to downstream LLM agent hallucinations.
+
+
+
+To handle these relational gaps, recent literature has shifted toward Graph-Augmented RAG (GraphRAG) systems \cite{edge2024graphrag, shao2024graph}. By capturing explicit entity linkages and semantic associations through an ingested text corpus, graph-based indices transform document spaces into structured topological networks. Building on these advances, neurobiologically inspired frameworks like HippoRAG \cite{gutierrez2024hipporag, gutierrez2025hipporag2} deploy Personalized PageRank (PPR) algorithms \cite{page1999pagerank} over bipartite entity-passage configurations, successfully mimicking long-term associative memory pathways to resolve complex multi-hop queries without relying on expensive global graph clustering.
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+    font=\scriptsize,
+    box/.style={
+        rectangle,
+        rounded corners=3pt,
+        draw=black!35,
+        thick,
+        align=center,
+        minimum width=2.25cm,
+        minimum height=0.85cm,
+        inner sep=2pt
+    },
+    arrow/.style={
+        -{Latex[length=1.6mm]},
+        thick,
+        draw=black!60
+    }
+]
+
+% Row 1
+\node[box, fill=blue!8] (docs) at (0,0) {
+    \textbf{Docs}\\[-1pt]
+    \tiny PDFs, CSVs, Excel
+};
+
+\node[box, fill=blue!8] (ingest) at (2.75,0) {
+    \textbf{Ingest}\\[-1pt]
+    \tiny OCR + chunking
+};
+
+\node[box, fill=aethelPurple!18] (graph) at (5.50,0) {
+    \textbf{Graph}\\[-1pt]
+    \tiny entities + passages
+};
+
+% Row 2
+\node[box, fill=aethelPurple!25] (orch) at (0,-1.35) {
+    \textbf{Orchestrator}\\[-1pt]
+    \tiny routes evidence
+};
+
+\node[box, fill=aethelGreen!22] (agents) at (2.75,-1.35) {
+    \textbf{Agents}\\[-1pt]
+    \tiny valuation, leverage
+};
+
+\node[box, fill=aethelGold!35] (memo) at (5.50,-1.35) {
+    \textbf{IC Memo}\\[-1pt]
+    \tiny risks + metrics
+};
+
+% Arrows
+\draw[arrow] (docs.east) -- (ingest.west);
+\draw[arrow] (ingest.east) -- (graph.west);
+
+\draw[arrow] (graph.south) -- ++(0,-0.28) -| (orch.north);
+\draw[arrow] (orch.east) -- (agents.west);
+\draw[arrow] (agents.east) -- (memo.west);
+
+\end{tikzpicture}
+
+\vspace{-0.5em}
+\caption{Aethel converts financial documents into graph-indexed evidence, routes it through specialist diligence agents, and synthesizes an investment committee memo.}
+\label{fig:aethel_pipeline}
+\vspace{-0.8em}
+\end{figure}
+However, existing multi-agent and graph frameworks remain brittle when deployed in document-intensive corporate diligence domains, where critical financial metrics are topographically isolated across disjoint documents and entity names appear in multiple surface forms.
+
+We address these limitations by introducing \textbf{Aethel}, a graph-retrieval framework for multi-hop financial diligence. By routing multi-hop relational queries via sparse Matrix-Vector Multiplication (SpMV) power iteration over a bipartite entity-passage graph, Aethel retrieves comprehensive evidence sets that are then forwarded to a downstream specialist swarm for synthesis.
+
+Aethel pairs a bipartite PPR graph execution engine inspired by HippoRAG v2 with an orchestrated parallel multi-agent swarm.
+To summarize our core contributions:
+\begin{itemize}[noitemsep,topsep=0pt,parsep=0pt,partopsep=0pt]
+    \item \textbf{Bipartite Coreference Teleportation (BCT)}: We formalize a coreference correction layer that expands entity mentions in the PPR personalization vector via alias matching and substring overlap, improving Recall@5 and Recall@3 at the cost of precision@1---a tradeoff that benefits multi-passage diligence workflows where all supporting evidence must be surfaced.
+    \item \textbf{Graph-Filtered Specialist Swarm}: A system architecture coupling bipartite PPR retrieval with a parallel agent swarm. The graph-walk step acts as a topological filter, constraining the context window forwarded to each specialist to only the highest-relevance passages and preserving cross-document audit trails. Agent contribution is not separately benchmarked in this work; specialist swarm evaluation is left as future work.
+    \item \textbf{Cross-Domain Generalizability \& Reproducibility}: We evaluate on established multi-hop QA benchmarks (MuSiQue, 2WikiMultiHopQA) as proxies for the cross-document retrieval structure that PE diligence requires; absent a public PE benchmark, these datasets exercise the same dependency pattern. Importantly, the benchmark evaluates PPR and BCT as a standalone Python/numpy algorithm with regex entity extraction, distinct from the HippoRAG-backed deployed system. All evaluation code is released at \texttt{backend/public\_benchmark.py}; results are deterministically reproducible.
+\end{itemize}
+
+
+
+\begin{figure*}[t]
+\centering
+% This forces the hardcoded grid to dynamically shrink to fit your column perfectly
+\resizebox{\columnwidth}{!}{
+\begin{tikzpicture}[
+    node distance=1.0cm and 0.15cm, 
+    transparent_box/.style={draw=gray!60, dashed, fill=gray!5, rounded corners, inner sep=4pt}, 
+    io/.style={draw=blue!70, fill=blue!5, rectangle, minimum width=4cm, minimum height=0.7cm, font=\bfseries\small},
+    orc/.style={draw=purple!70, fill=purple!5, rectangle, minimum width=4cm, minimum height=0.7cm, font=\bfseries\small},
+    spec/.style={draw=orange!70, fill=orange!5, rectangle, minimum width=2.2cm, minimum height=0.7cm, font=\bfseries\scriptsize, text width=2.0cm, align=center},
+    synth/.style={draw=green!70, fill=green!5, rectangle, minimum width=4cm, minimum height=0.7cm, font=\bfseries\small},
+    arrow/.style={thick,->,>=stealth,draw=gray!80}
+]
+    % Nodes (Perfectly centered using exact, fixed grid dimensions)
+    \node (input) at (0, 2.2) [io] {Input Diligence Query};
+    \node (orchestrator) at (0, 1.0) [orc] {Orchestrator Node};
+    
+    % Specialist Row (Hardcoded across a beautifully balanced horizontal plane)
+    \node (liq) at (-3.4, -0.6) [spec] {Liquidity Specialist};
+    \node (val) at (-1.1, -0.6) [spec] {Valuation Auditor};
+    \node (dil) at (1.1, -0.6) [spec] {Diligence Auditor};
+    
+    % Explicitly styled inline to bypass the custom style key compiler error
+    \node (mkt) at (3.4, -0.6) [draw=cyan!70, fill=cyan!5, rectangle, minimum width=2.2cm, minimum height=0.7cm, font=\bfseries\scriptsize, text width=2.0cm, align=center] {Market Research\\(Web Search)};
+    
+    % Compressed vertical synthesizer placement
+    \node (synthesizer) at (0, -2.2) [synth] {Synthesizer Node};
+    \node (output) at (0, -3.4) [io] {Final Approved Diligence Memo};
+
+    % Layer groupings
+    \begin{scope}[on background layer]
+        \node[transparent_box, fit=(liq) (val) (dil) (mkt), inner sep=6pt] (swarm_box) {};
+    \end{scope}
+
+    % Trajectories (Using white-masked inline labels to guarantee zero line-cutting)
+    \draw [thick,draw=gray!80] (input.south) -- (orchestrator.north);
+    
+    % Top routing splits (Horizontal bus line)
+    \draw [thick,draw=gray!80] (orchestrator.south) -- (0, 0.35);
+    \draw [thick,draw=gray!80] (-3.4, 0.35) -- (3.4, 0.35);
+    
+    % Clear vertical drop arrows down to each specialist
+    \draw [arrow] (-3.4, 0.35) -- (liq.north);
+    \draw [arrow] (-1.1, 0.35) -- (val.north);
+    \draw [arrow] (1.1, 0.35) -- (dil.north);
+    \draw [arrow] (3.4, 0.35) -- (mkt.north);
+    
+    % Inline text label that beautifully breaks the top horizontal line
+    \node at (-2.25, 0.35) [fill=white, inner sep=2pt, font=\scriptsize] {Decompose \& Task};
+    
+    % Bottom routing merges (Horizontal bus line)
+    \draw [thick,draw=gray!80] (liq.south) -- (-3.4, -1.45);
+    \draw [thick,draw=gray!80] (val.south) -- (-1.1, -1.45);
+    \draw [thick,draw=gray!80] (dil.south) -- (1.1, -1.45);
+    \draw [thick,draw=gray!80] (mkt.south) -- (3.4, -1.45);
+    
+    \draw [thick,draw=gray!80] (-3.4, -1.45) -- (3.4, -1.45);
+    
+    % Inline text label that beautifully breaks the bottom horizontal line
+    \node at (2.25, -1.45) [fill=white, inner sep=2pt, font=\scriptsize] {Consensus Loop};
+    
+    % Final drops down to output
+    \draw [arrow] (0, -1.45) -- (synthesizer.north);
+    \draw [arrow] (synthesizer.south) -- (output.north);
+\end{tikzpicture}
+}
+\caption{The modular structural visualization of Aethel's parallel multi-agent swarm pipeline execution.}
+\label{fig:architecture}
+\end{figure*}
+
+\section{Related Work}
+\label{sec:related_work}
+
+\subsection{Graph-Augmented Retrieval}
+Traditional dense Retrieval-Augmented Generation (RAG) frameworks rely primarily on isolated semantic vector embeddings, which suffer from a fundamental structural breakdown when answering queries that span disjoint documents or require topological reasoning \cite{lewis2020rag}. To bridge this gap, recent paradigms inject structured domain Knowledge Graphs (KGs) into the information discovery loop. Early implementations utilized localized entity-linking pipelines to extract sub-graphs, routing them along with the text chunks into individual model contexts \cite{karpukhin2020dpr}.
+
+More recently, frameworks like GraphRAG have shifted toward synthesizing global community summaries across hierarchical cluster maps \cite{edge2024graphrag}. However, these approaches incur immense computational and API token overhead when dealing with highly fluid, high-volume data streams. To combat this operational cost, systems like HippoRAG explore personalized PageRank iterations directly over sparse, text-extracted bipartite entity-passage topologies, bypassing costly global summaries while maintaining competitive structural retrieval capabilities \cite{gutierrez2025hipporag2}. Our framework, \textit{Aethel}, extends this graph-walk paradigm by modifying it specifically for noisy, high-density financial documents containing complex tabular ledgers.
+
+\subsection{Multi-Agent Collaboration and Swarms}
+Paralleling advancements in structural retrieval, substantial attention has turned toward substituting monolithic language models with specialized multi-agent orchestrations \cite{autogen}. Rather than depending on a single inference sequence to aggregate data, multi-agent frameworks divide complex problems into distinct, specialized components managed by independent behavioral prompts.
+
+While these decentralized conversational topologies demonstrate strong performance in software engineering tasks and multi-step math reasoning, extending agent swarms to long-form financial diligence remains open. Most existing agents operate over standard vector indexes, causing them to hallucinate or stall when critical cross-document references are split or corrupted by optical character recognition (OCR) errors. \textit{Aethel} directly addresses this vulnerability. Instead of connecting an agent swarm to raw semantic text chunks, we map our specialists over an optimized bipartite entity graph execution layer. This allows the agents to collaborate with hard structural constraints, protecting them against contextual fragmentation.
+
+\section{System Architecture \& The Specialist Swarm}
+
+Unlike flat, linear pipelines, Aethel decouples macro-document retrieval, deep external validation, and narrative synthesis into an orchestrated multi-agent layout \cite{autogen}.
+
+
+\subsection{Orchestration Logic}
+
+The system employs a hierarchical orchestration model where a central Orchestrator node decomposes multi-faceted financial queries into atomic, sequential sub-tasks. This decomposition ensures that each specialist agent receives a narrow, well-defined context, minimizing the noise-to-signal ratio often found in monolithic LLM prompts.
+
+\subsection{Agent Node Definitions}
+
+The Aethel Swarm is comprised of the following specialized nodes:
+\begin{itemize}[noitemsep,topsep=2pt]
+    \item \textbf{Orchestrator}: Decomposes queries and allocates targets to specialists.
+    \item \textbf{Liquidity Specialist}: Computes capital call liabilities, unfunded obligations, and distribution pacing.
+    \item \textbf{Valuation Auditor}: Analyzes NAV methodologies and Level III unobservable accounting inputs.
+    \item \textbf{Diligence Auditor}: Scans for structural compliance friction and line-item contradictions between public and private reports.
+    \item \textbf{Market Research Specialist}: Designed to query live public comps and macroeconomic indicators; in the current implementation this node is invoked via an external web-search API and is not benchmarked as part of the quantitative evaluation.
+    \item \textbf{Synthesizer}: Resolves discrepancies via an internal consensus protocol and compiles the final structured diligence memo.
+\end{itemize}
+
+
+\subsection{Diligence User Interface Architecture}
+
+To support financial workflows, Aethel includes an interface designed for evaluation transparency and citation verification:
+\begin{itemize}[noitemsep,topsep=2pt]
+    \item \textbf{Interactive Diligence Swarm Logger}: Provides real-time visualization of side-by-side specialist audits coordinated by the orchestrator.
+    \item \textbf{Graph Multi-Hop Retrieval Visualizer}: Highlights exact PPR bipartite paths (e.g., \textit{Stripe} $\rightarrow$ \textit{Apollo} $\rightarrow$ \textit{Unfunded Commitments}) with clickable page/line metadata citations.
+    \item \textbf{Consensus Verdict Dashboard}: Integrates specialist checklists and feature cards for data gaps, utilizing structured visual tracking elements and tabular figures for precise financial reporting.
+\end{itemize}
+
+\section{Mathematical Multi-Hop Framework}
+
+To formalize how Aethel bypasses the lexical boundaries of conventional vector search, we define our graph retrieval architecture using standard bipartite graph notation.
+
+\subsection{Bipartite Entity-Passage Graph Representation}
+
+Let an ingested document corpus be represented as an undirected bipartite graph:
+\begin{equation}
+\mathcal{G} = (\mathcal{V}_P \cup \mathcal{V}_E, \mathcal{E})
+\end{equation}
+Where $\mathcal{V}_P = \{p_1, p_2, \dots, p_N\}$ represents discrete text passages (document chunks), $\mathcal{V}_E = \{e_1, e_2, \dots, e_M\}$ represents unique extracted entity nodes, and $\mathcal{E}$ is the set of edges mapping undirected co-occurrence. An edge $(p_i, e_j) \in \mathcal{E}$ exists if and only if entity $e_j$ was extracted from passage $p_i$ during indexing.
+
+\subsection{Transition Probability Matrix}
+
+Let $\mathbf{A} \in \{0, 1\}^{(N+M) \times (N+M)}$ be the adjacency matrix of $\mathcal{G}$. The transition probability matrix $\mathbf{W} \in \mathbb{R}^{(N+M) \times (N+M)}$ dictates a random walk sequence across the bipartite topology, defined by column-normalizing $\mathbf{A}$:
+\begin{equation}
+W_{ij} = \frac{A_{ij}}{\sum_{k} A_{kj}}
+\end{equation}
+For sink nodes with no outgoing edges, their columns in $\mathbf{W}$ are set to zero.
+
+\subsection{Personalized PageRank (PPR) Retrieval}
+
+During user query execution, a query $q$ is parsed to extract query entities
+$\mathcal{E}_q \subseteq \mathcal{V}_E$. These entities serve as seed nodes in
+the bipartite entity--passage graph. Rather than relying only on direct dense
+similarity, PPR allows relevance to propagate through shared entities, linked
+passages, and intermediate relational bridges.
+
+We construct a personalization vector $\mathbf{s} \in \mathbb{R}^{N+M}$
+concentrated on the active seed nodes:
+\begin{equation}
+s_i =
+\begin{cases}
+\frac{1}{|\mathcal{E}_q|}, & \text{if node } i \in \mathcal{E}_q \\
+0, & \text{otherwise}.
+\end{cases}
+\end{equation}
+
+Let $\mathbf{W} \in \mathbb{R}^{(N+M)\times(N+M)}$ denote the normalized graph
+transition matrix, where $N$ is the number of entity nodes and $M$ is the number
+of passage nodes. The steady-state probability vector
+$\mathbf{p} \in \mathbb{R}^{N+M}$ is solved using power iteration:
+\begin{equation}
+\mathbf{p}^{(t+1)} = \alpha \mathbf{s} + (1 - \alpha)\mathbf{W}\mathbf{p}^{(t)}.
+\end{equation}
+
+Here, $\alpha = 0.15$ is the damping factor. Intuitively, the teleportation term
+keeps the walk anchored to the query entities, while the transition term allows
+evidence to diffuse across neighboring passages and related entities. This is
+important for financial diligence, where relevant evidence is often distributed
+across separate documents, tables, covenants, disclosures, and management notes.
+
+Power iteration continues until the ranking stabilizes or a fixed iteration
+cap is reached.  Theoretically, convergence is guaranteed when:
+\begin{equation}
+\left\|\mathbf{p}^{(t+1)} - \mathbf{p}^{(t)}\right\|_1 < \epsilon .
+\end{equation}
+In our implementation, we cap iterations at $I = 20$, which is sufficient for
+convergence given $\alpha = 0.15$ and the sparse graph structure.
+
+Upon convergence, all passage nodes $p_i \in \mathcal{V}_P$ are ranked according
+to their steady-state probability masses in $\mathbf{p}$. The retrieved context
+is therefore given by:
+\begin{equation}
+\mathrm{TopK}(q) =
+\operatorname*{arg\,topK}_{p_i \in \mathcal{V}_P} \mathbf{p}_{p_i}.
+\end{equation}
+
+The top-$K$ passages are then passed to the downstream agentic swarm along with
+their source metadata, linked entities, and PPR scores. This provides both
+retrieval evidence and a lightweight explanation of why each passage was selected.
+In practice, this improves retrieval for multi-hop queries because passages can
+be recovered through graph proximity even when paraphrasing or surface-form
+variation weakens direct lexical matching.
+\Needspace{18\baselineskip}
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  font=\footnotesize,
+  node distance=8mm and 14mm,
+  >=Stealth,
+  ent/.style={circle, draw=green!70!black, fill=green!12, minimum size=11mm, inner sep=0pt},
+  pas/.style={rectangle, draw=orange!80!black, fill=orange!12, rounded corners=3pt, minimum width=3.55cm, minimum height=10mm, text width=3.45cm, align=center},
+  query/.style={rectangle, draw=blue!70!black, fill=blue!10, rounded corners=3pt, minimum width=4.25cm, minimum height=10mm, align=center, font=\bfseries\footnotesize},
+  op/.style={rectangle, draw=purple!70!black, fill=purple!10, rounded corners=3pt, minimum width=4.25cm, minimum height=10mm, align=center, font=\bfseries\footnotesize},
+  edge/.style={draw=gray!55, line width=0.8pt},
+  hi/.style={draw=red!75!black, line width=1.4pt},
+  arrow/.style={->, draw=gray!80, line width=0.95pt},
+  pill/.style={fill=white, draw=gray!30, rounded corners=2pt, inner sep=1.2pt, font=\scriptsize, text=gray!70}
+]
+
+% Top pipeline
+\node (q)   [query] {Multi-hop Query};
+\node (ppr) [op, below=of q] {PPR / SpMV Iteration};
+
+% Bipartite columns — entities (left) and passages (right)
+\node (e1) [ent, hi, below left=6mm and 14mm of ppr] {$e_1$};
+\node (e2) [ent, below=of e1] {$e_2$};
+\node (e3) [ent, hi, below=of e2] {$e_3$};
+
+\node (p1) [pas, hi, right=26mm of e1] {Passage $p_1$\\cap table};
+\node (p2) [pas, below=of p1] {Passage $p_2$\\NAV note};
+\node (p3) [pas, hi, below=of p2] {Passage $p_3$\\audit memo};
+
+% Bipartite edges (entity <-> passage only; no passage-passage edges)
+% Highlighted path: e1 -> p1 -> e3 -> p3 (two-hop chain)
+\draw[edge, hi] (e1) to[bend left=12] (p1);    % hop 1a: seed entity -> passage
+\draw[edge] (e1) -- (p2);
+\draw[edge] (e2) -- (p2);
+\draw[edge] (e2) to[bend right=8] (p3);
+\draw[edge, hi] (e3) to[bend right=-8] (p1);   % hop 1b: passage shares entity
+\draw[edge, hi] (e3) -- (p3);                   % hop 2: bridging entity -> new passage
+
+% PPR seeding: query entities set the personalization vector
+\draw[arrow] (q) -- node[pill, pos=0.40, right=-8pt] {seed} (ppr);
+
+% PPR diffuses mass into seed entities (not into a single passage)
+\draw[arrow] (ppr.west) -- ++(-6mm,0) |- node[pill, pos=0.25] {$\mathbf{s}$} (e1.west);
+
+% Ranking: all passages receive steady-state mass; top-K are selected
+\node (topk) [query, below=12mm of p3] {Top-$K$ Passages};
+\draw[arrow] (p3.south) -- ++(0,-4mm) |- node[pill, pos=0.06] {rank by $\mathbf{p}$} (topk.north);
+
+% Legend
+\node[font=\scriptsize, text=gray!70, below=1mm of topk, text width=5.5cm, align=center]
+  {red = example 2-hop retrieval path:\\$e_1 \!\to\! p_1 \!\to\! e_3 \!\to\! p_3$};
+
+\end{tikzpicture}
+\caption{Bipartite entity--passage retrieval in Aethel.  Query entities seed the PPR personalization vector~$\mathbf{s}$; power iteration diffuses probability mass through entity--passage edges (no passage--passage edges exist).  The red path illustrates a two-hop chain: seed entity~$e_1$ activates passage~$p_1$, which shares entity~$e_3$, propagating mass onward to passage~$p_3$.  All passages are ranked by their steady-state probability~$\mathbf{p}$ and the top-$K$ are forwarded to downstream agents.}
+\label{fig:bipartite_ppr}
+\end{figure}
+
+\subsection{Scalability Analysis \& PPR Complexity}
+
+The system maintains consistent performance as corpus size increases. Linear LLM entity extraction operates at $\mathcal{O}(N)$ optimized via asynchronous threads, paired with $\mathcal{O}(N+M)$ dense index embeddings. Sparse Matrix-Vector Multiplications (SpMV) in power iteration scale efficiently as $\mathcal{O}(I \cdot |\mathcal{E}|)$. Given sparse document-entity densities and a teleport probability of $\alpha = 0.15$, the spectral radius of the iteration operator is bounded below 1, ensuring rapid convergence. In practice, we cap iterations at $I = 20$; convergence speed depends on corpus graph structure, and we do not report wall-clock latency as we did not profile the system at scale. This bound compares favourably theoretically with approaches that require global graph re-clustering, which scale super-linearly with the number of documents.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+
+\begin{axis}[
+    title={Multi-Hop Benchmark Performance (HR@5)},
+    ylabel={HR@5 (\%)},
+    symbolic x coords={MuSiQue,2WikiMultiHopQA},
+    xtick=data,
+    ybar,
+    bar width=8pt,
+    ymin=80,
+    ymax=105,
+    ymajorgrids=true,
+    grid style={dashed, gray!35},
+    tick label style={font=\small},
+    label style={font=\small},
+    title style={font=\large},
+    enlarge x limits=0.4,
+    axis y discontinuity=crunch,
+    nodes near coords,
+    every node near coord/.append style={
+        font=\scriptsize\bfseries,
+        yshift=2pt
+    },
+    legend style={
+        font=\small,
+        draw=gray!30,
+        fill=white,
+        at={(0.02,0.98)},
+        anchor=north west
+    }
+]
+
+\addplot[
+    fill=densegray,
+    draw=black!70,
+    every node near coord/.append style={color=black!70}
+] coordinates {
+    (MuSiQue,84.5)
+    (2WikiMultiHopQA,99.0)
+};
+\addlegendentry{Sparse (TF-IDF)}
+
+\addplot[
+    fill=aethelBlue!70,
+    draw=black!70,
+    every node near coord/.append style={color=aethelBlue!80!black}
+] coordinates {
+    (MuSiQue,96.0)
+    (2WikiMultiHopQA,99.5)
+};
+\addlegendentry{Dense (MiniLM)}
+
+\addplot[
+    fill=hippogreen,
+    draw=black!70,
+    fill opacity=0.9,
+    every node near coord/.append style={color=hippogreen!80!black}
+] coordinates {
+    (MuSiQue,87.5)
+    (2WikiMultiHopQA,99.5)
+};
+\addlegendentry{Graph (PPR)}
+
+\addplot[
+    fill=aethelpurple,
+    draw=black!70,
+    fill opacity=0.95,
+    every node near coord/.append style={color=aethelpurple}
+] coordinates {
+    (MuSiQue,88.5)
+    (2WikiMultiHopQA,100)
+};
+\addlegendentry{Aethel (PPR+BCT)}
+
+\end{axis}
+
+\end{tikzpicture}
+
+\caption{HR@5 (Recall@5) on 200-question random samples from MuSiQue and 2WikiMultiHopQA. Retrieval is over each question's provided context pool ($\sim$10--20 paragraphs), not open-corpus. Y-axis begins at 80\% to show the spread between methods. All values computed by \texttt{public\_benchmark.py} against real HuggingFace validation data.}
+\label{fig:aethel_benchmarks_combined}
+\end{figure}
+
+
+
+\section{Experimental Setup \& Compliance}
+
+\subsection{Evaluation Protocol}
+
+We evaluate Aethel on 200-question random samples (seed=42) from the official MuSiQue and 2WikiMultiHopQA validation splits. For each question, the provided context paragraphs (approximately 10 paragraphs for 2WikiMultiHopQA and 20 paragraphs for MuSiQue, representing gold supporting paragraphs mixed with distractors) are indexed into fresh per-question retrieval indices. We compare sparse lexical (TF-IDF), dense bi-encoder (all-MiniLM-L6-v2), exact bipartite PPR graph, and coreference-aware BCT retrieval. Importantly, retrieval is conducted only over this closed context pool for each question, rather than a full open corpus. We evaluate passage selection via Hit Rate@$k$ (HR@$k$), Mean Reciprocal Rank (MRR), and Retrieval Token Overlap (RTO) against gold answers. RTO is the token-level F1 between the concatenated top-$K$ retrieved passages and the gold answer string; it is \emph{not} a generated-answer F1, and its absolute values are low by construction. No query template, hyperparameter, or system component was tuned on these datasets.
+
+\subsection{Reproducibility and Benchmark Protocol}
+
+All public benchmark evaluations use the \texttt{datasets} library to stream the official HuggingFace validation splits of MuSiQue and 2WikiMultiHopQA. For benchmark reproducibility and to avoid external API dependencies, \texttt{public\_benchmark.py} implements the PPR retrieval and BCT layers as a self-contained evaluator using numpy sparse matrix-vector multiplication (SpMV). This standalone evaluator implements the same bipartite PPR algorithm described in Section~4 with regex-based entity extraction, operating on each question's provided context paragraphs. The production diligence pipeline (\texttt{rag\_service.py}) delegates to the HippoRAG v2 library for LLM-based entity extraction and graph construction; BCT integration into the production pipeline is left as future work.
+
+For each question we build a fresh per-question bipartite entity--passage graph, a sparse TF-IDF index, and a dense bi-encoder index (using a locally run \texttt{all-MiniLM-L6-v2} model) over the provided context paragraphs. Results are cached locally to \texttt{eval\_cache.json} for deterministic reproduction on re-runs. The complete evaluation code is released at \texttt{backend/public\_benchmark.py}.
+
+
+
+\section{Empirical Results \& Discussion}
+
+We report (i) real benchmark performance on established multi-hop QA datasets and (ii) statistical significance tests.
+
+\subsection{Domain Bridge: Mapping General QA to Financial Diligence}
+
+Absent a public benchmark for PE diligence, we evaluate on two established multi-hop QA datasets and argue by analogy that the retrieval challenges they exercise are structurally similar to those in PE document analysis.
+
+MuSiQue \cite{trivedi2022musique} is constructed to stress compositional retrieval: each question requires following a connected chain of evidence across multiple passages. Systems that retrieve plausible but incomplete evidence sets fail because a single missing bridge passage breaks the full reasoning chain. This structure is analogous to PE diligence, where a single missing link in an auditing chain (e.g., \textbf{Portfolio Company} $\rightarrow$ \textbf{Capital Account Ledger} $\rightarrow$ \textbf{Fund Entity} $\rightarrow$ \textbf{Unfunded Liability}) similarly invalidates the downstream analysis. We do not claim the two domains are identical---the claim is that multi-hop retrieval capability, as measured on MuSiQue, is a necessary (though not sufficient) condition for PE diligence retrieval.
+
+In contrast, 2WikiMultiHopQA \cite{ho2020constructing} stresses multi-document coreference and entity tracking across dispersed files (HR@5). This is analogous to the challenge of tracking capital accounts across separate LP letters, general partner disclosures, and public filings. We use performance on these benchmarks as a proxy for cross-document retrieval capability, while acknowledging that a proper PE diligence evaluation would require domain-specific annotated queries, which we leave as future work.
+
+\subsection{Public Benchmark Evaluation (MuSiQue, 2WikiMultiHopQA)}
+
+Table~\ref{tab:musique_2wiki} reports the full retrieval metric suite on 200-question random samples from both benchmarks. We report HR@1, HR@3, HR@5 (Recall@5), MRR, and Retrieval Token Overlap (RTO). Importantly, because the evaluation is performed over each question's closed context pool ($\sim$10--20 paragraphs), the dense bi-encoder baseline (MiniLM) achieves very high absolute performance (e.g., 96.0\% HR@5 on MuSiQue). This is expected since dense embeddings are highly effective at short-list ranking where the distraction pool is small and open-domain false positives are absent.
+
+Comparing the graph-based retrievers, we observe a clear \textbf{precision--recall tradeoff} introduced by Aethel's BCT layer: BCT improves graph recall coverage (HR@5 from 87.5\% to 88.5\% on MuSiQue, and from 99.5\% to 100.0\% on 2WikiMultiHopQA) at the cost of precision@1 (HR@1: 57.0\% vs.~63.0\% on MuSiQue). This is the \emph{correct} tradeoff for multi-passage diligence workflows, where downstream specialist agents require \emph{all} gold supporting passages in the context window to perform multi-hop synthesis and numerical auditing---not merely the single top-ranked passage.
+
+\begin{table*}[t]
+\centering
+\small
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lcccccccccc@{}}
+\toprule
+\textbf{Method} & \multicolumn{4}{c}{\textbf{2WikiMultiHopQA}} & & \multicolumn{5}{c}{\textbf{MuSiQue}} \\
+\cmidrule(lr){2-5} \cmidrule(lr){7-11}
+ & \textbf{HR@1} & \textbf{HR@3} & \textbf{HR@5} & \textbf{MRR} & & \textbf{HR@1} & \textbf{HR@3} & \textbf{HR@5} & \textbf{MRR} & \textbf{RTO$^\dagger$} \\
+\midrule
+Sparse (TF-IDF) & 79.0 & 96.5 & 99.0 & 0.873 & & 58.0 & 78.0 & 84.5 & 0.681 & 0.57 \\
+Dense (MiniLM)  & \textbf{90.0} & \textbf{99.0} & 99.5 & \textbf{0.940} & & \textbf{76.5} & \textbf{93.5} & \textbf{96.0} & \textbf{0.849} & \textbf{0.81} \\
+Graph (PPR)     & 83.0 & 97.0 & 99.5 & 0.900 & & 63.0 & 80.0 & 87.5 & 0.721 & 0.62 \\
+\textbf{Aethel (PPR+BCT)} & 78.5 & 98.0 & \textbf{100.0} & 0.877 & & 57.0 & 78.5 & 88.5 & 0.687 & 0.68 \\
+\bottomrule
+\end{tabular}
+\caption{Full retrieval metrics on 200-question random samples (seed=42) from the official MuSiQue and 2WikiMultiHopQA validation splits. Retrieval is conducted over each question's provided context pool ($\sim$10--20 paragraphs), not open-corpus. HR@$k$ = Hit Rate (\%). MRR = Mean Reciprocal Rank. \textbf{Bold} = best per column. BCT improves recall coverage of the graph-based retriever at the cost of precision@1. All numbers computed by \texttt{public\_benchmark.py} against real HuggingFace data.\\
+$^\dagger$\,RTO (Retrieval Token Overlap) = token-level F1 between concatenated top-$K$ retrieved passages and the gold answer string. This is \emph{not} a generated-answer F1; absolute values are low by construction because precision is computed over hundreds of passage tokens vs.\ a short gold answer.}
+\label{tab:musique_2wiki}
+\end{table*}
+
+\subsection{Statistical Significance}
+
+To test whether the RTO improvement on MuSiQue reflects more than sampling
+variance, we run a paired bootstrap ($B=1000$, seed=42) over the per-question
+RTO scores. The mean RTO difference (Aethel $-$ Bipartite PPR) is $+0.06$ points
+with a 95\% CI of $[-0.00, 0.13]$ and a one-tailed $p = 0.032$. The two-sided
+95\% interval marginally includes zero, so the improvement is significant only
+under a one-tailed test, not at the conventional two-sided 95\%
+level---a real but weak effect relative to sampling variance over the
+200-question sample. On 2WikiMultiHopQA, Aethel reaches HR@5 of 100.0\%
+(vs.~99.5\%), a ceiling at which significance testing is uninformative.
+The HR@1 deficit ($-4.5$ pp on 2Wiki, $-6.0$ pp on MuSiQue) reflects BCT's
+alias expansion, which boosts recall by over-seeding the PPR personalization
+vector at the cost of top-1 precision.
+
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{4.5pt}
+\renewcommand{\arraystretch}{1.12}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Metric} & \textbf{PPR} & \textbf{BCT} & \textbf{$\Delta$ (95\% CI)} & $\mathbf{p}$ \\
+\midrule
+MuSiQue RTO$^\dagger$  & 0.62 & 0.68 & $+0.06\ [-0.00,\ 0.13]$ & 0.032 \\
+2Wiki HR@5   & 99.5 & 100.0 & $+0.5$                 & ceiling \\
+MuSiQue HR@1 & 63.0 & 57.0  & $-6.0$                 & tradeoff \\
+2Wiki HR@1   & 83.0 & 78.5  & $-4.5$                 & tradeoff \\
+\bottomrule
+\end{tabular}
+\caption{Paired bootstrap on MuSiQue RTO ($B=1000$, seed=42): $+0.06$ points,
+95\% CI $[-0.00, 0.13]$, one-tailed $p=0.032$. The two-sided interval includes
+zero; the effect is real but weak at this sample size. HR@1 rows show the
+recall--precision tradeoff inherent to BCT alias expansion. All numbers
+produced by \texttt{backend/public\_benchmark.py}.\\
+$^\dagger$\,RTO = Retrieval Token Overlap (see Table~\ref{tab:musique_2wiki} footnote). $\Delta$ computed on unrounded per-question scores.}
+\label{tab:significance}
+\end{table}
+
+
+\section{Conclusion and Future Work}
+In this work, we presented Aethel, a graph-retrieval framework for multi-hop financial diligence. By coupling a bipartite PPR graph execution layer (evaluated as a standalone bipartite-PPR algorithm with regex entity extraction, independently of the HippoRAG-backed production system) with coreference-aware Bipartite Coreference Teleportation (BCT) and an orchestrated parallel multi-agent specialist swarm, Aethel addresses structural limitations of standard semantic dense RAG architectures. On 200-question random samples from the official MuSiQue and 2WikiMultiHopQA validation splits, BCT achieves HR@5\,=\,100\% on 2WikiMultiHopQA and HR@5\,=\,88.5\% on MuSiQue, outperforming vanilla graph retrieval on recall coverage at the cost of precision@1---an explicit, expected, and appropriate tradeoff for multi-passage diligence workflows.
+
+Moving forward, we intend to expand Aethel's architectural scope in three core operational dimensions. First, we aim to implement incremental graph topology updates to eliminate global index recalculation overhead when fresh financial disclosures are appended dynamically to a live transaction data room. Second, we plan to transition the specialist agent communication protocol from a hub-and-spoke configuration to an asynchronous decentralized consensus mechanism, further reducing communication latency during peak parallel workloads. Finally, we intend to integrate multi-modal extraction pipelines to seamlessly cross-reference vector representation layers across embedded financial charts, tables, and unstructured text blocks natively. Ultimately, Aethel bridges the critical chasm between raw document topology and automated corporate synthesis, offering an open, reproducible blueprint for high-stakes enterprise compliance automation.
+
+\section*{Limitations}
+
+While Aethel yields strong multi-hop retrieval efficiency, several limitations must be noted. First, the entity extraction and graph indexing phase relies on the disciplined taxonomy of institutional financial documents; less structured conversational inputs may introduce link noise into the entity-node mapping layer. Second, BCT's alias-expansion strategy improves recall but reduces precision@1, since over-seeding the PPR personalization vector can shift top-ranked results away from the single most relevant passage. Third, our quantitative public benchmarks use 200-question random samples from the official validation splits rather than the full test sets, which limits absolute comparability with full-scale system evaluations. Fourth, the BCT alias-expansion layer is currently implemented only in the standalone evaluator; integrating it into the production HippoRAG-backed pipeline is left as future work. Fifth, retrieval metrics are computed over each question's provided context pool ($\sim$10--20 paragraphs) rather than an open corpus; HR@5 values reflect closed-set performance and would be lower in an open-retrieval setting.
+
+\begin{thebibliography}{99}
+
+\bibitem[{Guti{\'e}rrez et~al.(2024)}]{gutierrez2024hipporag}
+Bernal~Jim{\'e}nez Guti{\'e}rrez et~al. 2024.
+\newblock Hippo{RAG}: Neurobiologically inspired long-term memory for large language models.
+\newblock \emph{Advances in Neural Information Processing Systems (NeurIPS 2024)}.
+
+\bibitem[{Guti{\'e}rrez et~al.(2025)}]{gutierrez2025hipporag2}
+Bernal~Jim{\'e}nez Guti{\'e}rrez et~al. 2025.
+\newblock From {RAG} to memory: Non-parametric continual learning with Hippo{RAG} 2.
+\newblock \emph{arXiv preprint arXiv:2502.14802}.
+
+\bibitem[{Gao et~al.(2022)}]{hyde}
+Luyu Gao et~al. 2022.
+\newblock Precise zero-shot dense retrieval without relevance labels.
+\newblock \emph{arXiv preprint arXiv:2212.10496}.
+
+\bibitem[{Reimers and Gurevych(2019)}]{crossencoder}
+Nils Reimers and Iryna Gurevych. 2019.
+\newblock Sentence-{BERT}: Sentence embeddings using Siamese BERT-networks.
+\newblock \emph{Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing (EMNLP 2019)}.
+
+\bibitem[{Page et~al.(1999)}]{page1999pagerank}
+Lawrence Page et~al. 1999.
+\newblock The PageRank citation ranking: Bringing order to the web.
+\newblock \emph{Stanford InfoLab Technical Report}.
+
+\bibitem[{Chroma(2023)}]{chromadb}
+Chroma Core Team. 2023.
+\newblock Chroma: The AI-native open-source embedding database.
+\newblock \url{https://github.com/chroma-core/chroma}.
+
+\bibitem[{Wu et~al.(2023)}]{autogen}
+Qingyun Wu et~al. 2023.
+\newblock Autogen: Enabling next-gen {LLM} applications via multi-agent conversation framework.
+\newblock \emph{arXiv preprint arXiv:2310.05421}.
+
+\bibitem[{Liu et~al.(2023)}]{geval}
+Yang Liu et~al. 2023.
+\newblock G-eval: {NLG} evaluation using {GPT}-4 with better human alignment.
+\newblock \emph{Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing (EMNLP 2023)}.
+
+\bibitem[{Lewis et~al.(2020)}]{lewis2020rag}
+Patrick Lewis et~al. 2020.
+\newblock Retrieval-augmented generation for knowledge-intensive nlp tasks.
+\newblock \emph{Advances in Neural Information Processing Systems (NeurIPS 2020)}.
+
+\bibitem[{Karpukhin et~al.(2020)}]{karpukhin2020dpr}
+Vladimir Karpukhin et~al. 2020.
+\newblock Dense passage retrieval for open-domain question answering.
+\newblock \emph{Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP 2020)}.
+
+\bibitem[{Edge et~al.(2024)}]{edge2024graphrag}
+Darren Edge et~al. 2024.
+\newblock From local to global: A graph rag approach to query-focused summarization.
+\newblock \emph{arXiv preprint arXiv:2404.16130}.
+
+\bibitem[{Shao et~al.(2024)}]{shao2024graph}
+Xiaohan Shao et~al. 2024.
+\newblock Graph-augmented retrieval-augmented generation: A survey.
+\newblock \emph{arXiv preprint arXiv:2408.01219}.
+
+\bibitem[{Trivedi et~al.(2022)}]{trivedi2022musique}
+Harsh Trivedi et~al. 2022.
+\newblock MuSiQue: Multihop Questions via Single Hop Question Composition.
+\newblock \emph{Transactions of the Association for Computational Linguistics (TACL)}, 10:539--554.
+
+\bibitem[{Ho et~al.(2020)}]{ho2020constructing}
+Xanh Ho et~al. 2020.
+\newblock Constructing a multi-hop QA dataset for comprehensive evaluation of reasoning steps.
+\newblock \emph{Proceedings of the 28th International Conference on Computational Linguistics (COLING 2020)}.
+
+\end{thebibliography}
+
+\clearpage
+\appendix
+
+\section{Prompt Templates and Swarm Agent System Directives}
+\label{sec:appendix_prompts}
+This section documents the formal execution prompts, schema constraints, and systemic context bounds assigned to each edge agent operating within the parallel multi-agent swarm architecture.
+
+\subsection{Orchestrator Routing Node Micro-Logic}
+The Orchestrator functions as a centralized task decomposition engine over the extracted sub-graphs. It coordinates agent state changes via the following target directive:
+\begin{quote}\small
+\texttt{SYSTEM CONTEXT: You are the Aethel System Routing Orchestrator operating inside an enterprise-grade financial compliance engine. Your task is to process highly fragmented, non-linear multi-hop financial queries over an input graph text collection. \\
+INSTRUCTIONS: \\
+1. Parse the localized entity-passage sub-graph returned by the power iteration algorithm. \\
+2. Decompose the main query into separate, logically dependent analytical phases. \\
+3. Assign each individual sub-task payload to a single domain expert node (Liquidity Specialist, Valuation Auditor, or Market Research Specialist). \\
+4. Enforce structural boundaries: Agents must not cross-contaminate their memory contexts. You are solely responsible for gathering raw token extractions, initiating consensus validation loops, and formatting the verifiable cross-document audit trail. Respond strictly in structured JSON following the validation schema macro.}
+\end{quote}
+
+\subsection{Valuation Auditor Compliance Directive}
+The Valuation Auditor isolates ledger accounts and recalculates asset statements to uncover internal or cross-document data conflicts:
+\begin{quote}\small
+\texttt{SYSTEM CONTEXT: You are the Aethel Valuation Auditor. You receive context vectors mapping out historical capital accounts, Net Asset Value (NAV) declarations, and distributed-to-paid-in (DPI) multiples isolated via Personalized PageRank iterations. \\
+INSTRUCTIONS: \\
+1. Extract numerical values associated with capital call balances and valuation ledger positions. \\
+2. Re-compute mathematical aggregates across disjoint financial years to identify structural bookkeeping inconsistencies. \\
+3. If a cross-document data discrepancy is detected where the variance exceeds a floating delta threshold of 0.01\%, flag the transaction as 'NON-COMPLIANT' and produce an explicit citation pointing to the conflicting text files. Do not guess or extrapolate.}
+\end{quote}
+
+\end{document}

@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv
+venv/
+ENV/
+env/
+.env
+
+# Vector DB & Knowledge Graph Data
+chroma_db/
+backend/data/hipporag_db/
+backend/data/chroma_db/
+
+# Node
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Local files / Cache
+backend/data/uploads/
+eval_cache.json
+

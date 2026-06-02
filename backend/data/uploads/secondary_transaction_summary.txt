@@ -1,0 +1,21 @@
+TRANSACTION SUMMARY: NORTHRIVER IV SECONDARY
+
+FUND INFORMATION
+Fund Name: NorthRiver IV
+Vintage Year: 2019
+Strategy: Middle-market buyout
+General Partner: NorthRiver Capital Partners
+
+PURCHASE TERMS
+Purchase Price: 83% of NAV (17% Discount)
+Effective Date: March 31, 2026
+Estimated Closing: June 15, 2026
+
+PORTFOLIO METRICS
+Reported NAV (Pro-rata): $100M
+Purchase Price: $83M
+Unfunded Commitment: $45M
+Total Exposure: $128M
+
+STRATEGIC RATIONALE
+This transaction allows for the immediate deployment of capital into a seasoned portfolio. The 2019 vintage is well-positioned for value realization as the underlying companies have reached operational maturity. The discount reflects current market liquidity premiums rather than fundamental asset impairment.
