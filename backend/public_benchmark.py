@@ -449,7 +449,7 @@ def evaluate_2wiki(n_questions: int = 200, seed: int = 42) -> Dict[str, Any]:
                 for idx in title_to_idx[sf[0]]:
                     gold.add(idx)
 
-        return docs, gold, None  # No answer F1 for 2Wiki (we use Recall)
+        return docs, gold, None  # No answer F1 for 2Wiki (we use Hit Rate)
 
     methods_cfg = ['tfidf', 'dense', 'graph', 'graph_regex']
     raw = _run_eval_loop(items, build_docs, methods_cfg, n_questions)

@@ -29,5 +29,3 @@ Thumbs.db
 
 # Local files / Cache
 backend/data/uploads/
-eval_cache.json
-

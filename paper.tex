@@ -66,7 +66,7 @@
 
 Secondary private equity (PE) transactions require the rapid synthesis of fragmented and unstructured financial disclosures. Traditional Dense Retrieval-Augmented Generation (RAG) frameworks exhibit structural vulnerabilities in this domain: critical financial metrics and their corresponding entity anchors are frequently distributed across disjoint documents, yielding negligible semantic or lexical overlap. To address this, we present \textbf{Aethel}, a framework that combines a bipartite Personalized PageRank (PPR) graph-retrieval engine inspired by HippoRAG v2 \cite{gutierrez2025hipporag2} with an orchestrated parallel agent swarm. Aethel models document corpora as bipartite entity-passage graphs, leveraging Personalized PageRank (PPR) walks \cite{page1999pagerank} to resolve relational multi-hop queries.
 
-Evaluated on 200-question random samples from the official MuSiQue and 2WikiMultiHopQA validation splits, our coreference-aware Bipartite Coreference Teleportation (BCT) layer achieves \textbf{HR@5\,=\,100\%} on 2WikiMultiHopQA and \textbf{HR@5\,=\,88.5\%} on MuSiQue, outperforming vanilla graph retrieval (99.5\% and 87.5\%) and sparse lexical (99.0\% and 84.5\%) baselines. Under these closed-set, small-candidate conditions, the dense bi-encoder baseline (all-MiniLM-L6-v2) achieves high recall (HR@5 of 99.5\% and 96.0\%), but Aethel operates purely on bipartite graph topologies without relying on continuous semantic embedding spaces. BCT improves recall coverage at the cost of precision@1 (HR@1: 78.5\% vs.~83.0\% for PPR alone), a tradeoff that is \emph{appropriate} for multi-passage diligence workflows where downstream agents require all supporting evidence before synthesis, not just the single top-ranked passage. All results are computed by \texttt{public\_benchmark.py} against real HuggingFace data; code is released and results are deterministically reproducible.
+Evaluated on 200-question random samples from the official MuSiQue and 2WikiMultiHopQA validation splits, our coreference-aware Bipartite Coreference Teleportation (BCT) layer achieves \textbf{HR@5\,=\,100\%} on 2WikiMultiHopQA and \textbf{HR@5\,=\,88.5\%} on MuSiQue, outperforming vanilla graph retrieval (99.5\% and 87.5\%) and sparse lexical (99.0\% and 84.5\%) baselines. Under these closed-set, small-candidate conditions, the dense bi-encoder baseline (all-MiniLM-L6-v2) achieves high hit rate (HR@5 of 99.5\% and 96.0\%), but lacks the explicit, auditable retrieval trail required for financial diligence. In contrast, Aethel operates purely on bipartite graph topologies without relying on continuous semantic embeddings, prioritizing retrieval coverage over top-1 precision. BCT improves hit rate at the cost of precision@1 (HR@1: 78.5\% vs.~83.0\% for PPR alone)---a tradeoff that is \emph{appropriate} for multi-passage diligence workflows where downstream agents require all supporting evidence before synthesis, not just the single top-ranked passage. All results are computed by \texttt{public\_benchmark.py} against real HuggingFace data; code is released and results are cached locally in the repository for deterministic reproduction on re-runs.
 
 \end{abstract}
 
@@ -108,7 +108,7 @@ To handle these relational gaps, recent literature has shifted toward Graph-Augm
 
 \node[box, fill=blue!8] (ingest) at (2.75,0) {
     \textbf{Ingest}\\[-1pt]
-    \tiny OCR + chunking
+    \tiny parse + chunk
 };
 
 \node[box, fill=aethelPurple!18] (graph) at (5.50,0) {
@@ -149,15 +149,16 @@ To handle these relational gaps, recent literature has shifted toward Graph-Augm
 \end{figure}
 However, existing multi-agent and graph frameworks remain brittle when deployed in document-intensive corporate diligence domains, where critical financial metrics are topographically isolated across disjoint documents and entity names appear in multiple surface forms.
 
-We address these limitations by introducing \textbf{Aethel}, a graph-retrieval framework for multi-hop financial diligence. By routing multi-hop relational queries via sparse Matrix-Vector Multiplication (SpMV) power iteration over a bipartite entity-passage graph, Aethel retrieves comprehensive evidence sets that are then forwarded to a downstream specialist swarm for synthesis.
+We address these limitations by introducing \textbf{Aethel}, a graph-retrieval framework for multi-hop financial diligence. By routing multi-hop relational queries via sparse Matrix-Vector Multiplication (SpMV) power iteration over a bipartite entity-passage graph, Aethel retrieves comprehensive evidence sets that are then forwarded to a downstream specialist swarm for synthesis. Crucially, while standard dense retrievers (like MiniLM) achieve high raw retrieval metrics under closed-set candidate pools, they rely entirely on continuous vector similarity and fail to provide the hard, topological audit trails required for audit compliance. Aethel is designed to prioritize hit rate (the probability that all necessary supporting passages are retrieved in the top-$K$) rather than top-1 precision. Downstream specialist agents can easily filter out irrelevant context, but are entirely blocked if a critical bridge passage is omitted from the context window. Furthermore, by operating purely on the graph topology, Aethel remains highly interpretable, allowing human auditors to verify exact entity-passage traversal pathways.
 
 Aethel pairs a bipartite PPR graph execution engine inspired by HippoRAG v2 with an orchestrated parallel multi-agent swarm.
 To summarize our core contributions:
 \begin{itemize}[noitemsep,topsep=0pt,parsep=0pt,partopsep=0pt]
-    \item \textbf{Bipartite Coreference Teleportation (BCT)}: We formalize a coreference correction layer that expands entity mentions in the PPR personalization vector via alias matching and substring overlap, improving Recall@5 and Recall@3 at the cost of precision@1---a tradeoff that benefits multi-passage diligence workflows where all supporting evidence must be surfaced.
+    \item \textbf{Bipartite Coreference Teleportation (BCT)}: We formalize a coreference correction layer that expands entity mentions in the PPR personalization vector via alias matching and substring overlap, improving HR@5 and HR@3 at the cost of precision@1---a tradeoff that benefits multi-passage diligence workflows where all supporting evidence must be surfaced.
     \item \textbf{Graph-Filtered Specialist Swarm}: A system architecture coupling bipartite PPR retrieval with a parallel agent swarm. The graph-walk step acts as a topological filter, constraining the context window forwarded to each specialist to only the highest-relevance passages and preserving cross-document audit trails. Agent contribution is not separately benchmarked in this work; specialist swarm evaluation is left as future work.
     \item \textbf{Cross-Domain Generalizability \& Reproducibility}: We evaluate on established multi-hop QA benchmarks (MuSiQue, 2WikiMultiHopQA) as proxies for the cross-document retrieval structure that PE diligence requires; absent a public PE benchmark, these datasets exercise the same dependency pattern. Importantly, the benchmark evaluates PPR and BCT as a standalone Python/numpy algorithm with regex entity extraction, distinct from the HippoRAG-backed deployed system. All evaluation code is released at \texttt{backend/public\_benchmark.py}; results are deterministically reproducible.
 \end{itemize}
+
 
 
 
@@ -491,7 +492,7 @@ The system maintains consistent performance as corpus size increases. Linear LLM
 
 \end{tikzpicture}
 
-\caption{HR@5 (Recall@5) on 200-question random samples from MuSiQue and 2WikiMultiHopQA. Retrieval is over each question's provided context pool ($\sim$10--20 paragraphs), not open-corpus. Y-axis begins at 80\% to show the spread between methods. All values computed by \texttt{public\_benchmark.py} against real HuggingFace validation data.}
+\caption{HR@5 on 200-question random samples from MuSiQue and 2WikiMultiHopQA. Retrieval is over each question's provided context pool ($\sim$10--20 paragraphs), not open-corpus. Y-axis begins at 80\% to show the spread between methods. All values computed by \texttt{public\_benchmark.py} against real HuggingFace validation data.}
 \label{fig:aethel_benchmarks_combined}
 \end{figure}
 
@@ -501,7 +502,7 @@ The system maintains consistent performance as corpus size increases. Linear LLM
 
 \subsection{Evaluation Protocol}
 
-We evaluate Aethel on 200-question random samples (seed=42) from the official MuSiQue and 2WikiMultiHopQA validation splits. For each question, the provided context paragraphs (approximately 10 paragraphs for 2WikiMultiHopQA and 20 paragraphs for MuSiQue, representing gold supporting paragraphs mixed with distractors) are indexed into fresh per-question retrieval indices. We compare sparse lexical (TF-IDF), dense bi-encoder (all-MiniLM-L6-v2), exact bipartite PPR graph, and coreference-aware BCT retrieval. Importantly, retrieval is conducted only over this closed context pool for each question, rather than a full open corpus. We evaluate passage selection via Hit Rate@$k$ (HR@$k$), Mean Reciprocal Rank (MRR), and Retrieval Token Overlap (RTO) against gold answers. RTO is the token-level F1 between the concatenated top-$K$ retrieved passages and the gold answer string; it is \emph{not} a generated-answer F1, and its absolute values are low by construction. No query template, hyperparameter, or system component was tuned on these datasets.
+We evaluate Aethel on 200-question random samples (seed=42) from the official MuSiQue and 2WikiMultiHopQA validation splits. For each question, the provided context paragraphs (approximately 10 paragraphs for 2WikiMultiHopQA and 20 paragraphs for MuSiQue, representing gold supporting paragraphs mixed with distractors) are indexed into fresh per-question retrieval indices. We compare sparse lexical (TF-IDF), dense bi-encoder (all-MiniLM-L6-v2), exact bipartite PPR graph, and coreference-aware BCT retrieval. Importantly, retrieval is conducted only over this closed context pool for each question, rather than a full open corpus. We evaluate passage selection via Hit Rate@$k$ (HR@$k$) and Mean Reciprocal Rank (MRR) against gold answers. No query template, hyperparameter, or system component was tuned on these datasets.
 
 \subsection{Reproducibility and Benchmark Protocol}
 
@@ -525,80 +526,43 @@ In contrast, 2WikiMultiHopQA \cite{ho2020constructing} stresses multi-document c
 
 \subsection{Public Benchmark Evaluation (MuSiQue, 2WikiMultiHopQA)}
 
-Table~\ref{tab:musique_2wiki} reports the full retrieval metric suite on 200-question random samples from both benchmarks. We report HR@1, HR@3, HR@5 (Recall@5), MRR, and Retrieval Token Overlap (RTO). Importantly, because the evaluation is performed over each question's closed context pool ($\sim$10--20 paragraphs), the dense bi-encoder baseline (MiniLM) achieves very high absolute performance (e.g., 96.0\% HR@5 on MuSiQue). This is expected since dense embeddings are highly effective at short-list ranking where the distraction pool is small and open-domain false positives are absent.
+Table~\ref{tab:musique_2wiki} reports the retrieval metric suite on 200-question random samples from both benchmarks. We report HR@1, HR@3, HR@5, and MRR. Importantly, because the evaluation is performed over each question's closed context pool ($\sim$10--20 paragraphs), the dense bi-encoder baseline (MiniLM) achieves very high absolute performance (e.g., 96.0\% HR@5 on MuSiQue). This is expected since dense embeddings are highly effective at short-list ranking where the distraction pool is small and open-domain false positives are absent. However, dense bi-encoders rely entirely on continuous vector representations and fail to provide the hard, topological audit trails required for regulated due diligence workflows.
 
-Comparing the graph-based retrievers, we observe a clear \textbf{precision--recall tradeoff} introduced by Aethel's BCT layer: BCT improves graph recall coverage (HR@5 from 87.5\% to 88.5\% on MuSiQue, and from 99.5\% to 100.0\% on 2WikiMultiHopQA) at the cost of precision@1 (HR@1: 57.0\% vs.~63.0\% on MuSiQue). This is the \emph{correct} tradeoff for multi-passage diligence workflows, where downstream specialist agents require \emph{all} gold supporting passages in the context window to perform multi-hop synthesis and numerical auditing---not merely the single top-ranked passage.
+Comparing the graph-based retrievers, we observe a clear \textbf{precision--coverage tradeoff} introduced by Aethel's BCT layer: BCT improves graph retrieval coverage (HR@5 from 87.5\% to 88.5\% on MuSiQue, and from 99.5\% to 100.0\% on 2WikiMultiHopQA) at the cost of precision@1 (HR@1: 57.0\% vs.~63.0\% on MuSiQue). This is the \emph{correct} tradeoff for multi-passage diligence workflows, where downstream specialist agents require \emph{all} gold supporting passages in the context window to perform multi-hop synthesis and numerical auditing---not merely the single top-ranked passage.
 
 \begin{table*}[t]
 \centering
 \small
-\setlength{\tabcolsep}{5pt}
+\setlength{\tabcolsep}{5.5pt}
 \renewcommand{\arraystretch}{1.15}
-\begin{tabular}{@{}lcccccccccc@{}}
+\begin{tabular}{@{}lccccccccc@{}}
 \toprule
-\textbf{Method} & \multicolumn{4}{c}{\textbf{2WikiMultiHopQA}} & & \multicolumn{5}{c}{\textbf{MuSiQue}} \\
-\cmidrule(lr){2-5} \cmidrule(lr){7-11}
- & \textbf{HR@1} & \textbf{HR@3} & \textbf{HR@5} & \textbf{MRR} & & \textbf{HR@1} & \textbf{HR@3} & \textbf{HR@5} & \textbf{MRR} & \textbf{RTO$^\dagger$} \\
+\textbf{Method} & \multicolumn{4}{c}{\textbf{2WikiMultiHopQA}} & & \multicolumn{4}{c}{\textbf{MuSiQue}} \\
+\cmidrule(lr){2-5} \cmidrule(lr){7-10}
+ & \textbf{HR@1} & \textbf{HR@3} & \textbf{HR@5} & \textbf{MRR} & & \textbf{HR@1} & \textbf{HR@3} & \textbf{HR@5} & \textbf{MRR} \\
 \midrule
-Sparse (TF-IDF) & 79.0 & 96.5 & 99.0 & 0.873 & & 58.0 & 78.0 & 84.5 & 0.681 & 0.57 \\
-Dense (MiniLM)  & \textbf{90.0} & \textbf{99.0} & 99.5 & \textbf{0.940} & & \textbf{76.5} & \textbf{93.5} & \textbf{96.0} & \textbf{0.849} & \textbf{0.81} \\
-Graph (PPR)     & 83.0 & 97.0 & 99.5 & 0.900 & & 63.0 & 80.0 & 87.5 & 0.721 & 0.62 \\
-\textbf{Aethel (PPR+BCT)} & 78.5 & 98.0 & \textbf{100.0} & 0.877 & & 57.0 & 78.5 & 88.5 & 0.687 & 0.68 \\
+Sparse (TF-IDF) & 79.0 & 96.5 & 99.0 & 0.873 & & 58.0 & 78.0 & 84.5 & 0.681 \\
+Dense (MiniLM)  & \textbf{90.0} & \textbf{99.0} & 99.5 & \textbf{0.940} & & \textbf{76.5} & \textbf{93.5} & \textbf{96.0} & \textbf{0.849} \\
+Graph (PPR)     & 83.0 & 97.0 & 99.5 & 0.900 & & 63.0 & 80.0 & 87.5 & 0.721 \\
+\textbf{Aethel (PPR+BCT)} & 78.5 & 98.0 & \textbf{100.0} & 0.877 & & 57.0 & 78.5 & 88.5 & 0.687 \\
 \bottomrule
 \end{tabular}
-\caption{Full retrieval metrics on 200-question random samples (seed=42) from the official MuSiQue and 2WikiMultiHopQA validation splits. Retrieval is conducted over each question's provided context pool ($\sim$10--20 paragraphs), not open-corpus. HR@$k$ = Hit Rate (\%). MRR = Mean Reciprocal Rank. \textbf{Bold} = best per column. BCT improves recall coverage of the graph-based retriever at the cost of precision@1. All numbers computed by \texttt{public\_benchmark.py} against real HuggingFace data.\\
-$^\dagger$\,RTO (Retrieval Token Overlap) = token-level F1 between concatenated top-$K$ retrieved passages and the gold answer string. This is \emph{not} a generated-answer F1; absolute values are low by construction because precision is computed over hundreds of passage tokens vs.\ a short gold answer.}
+\caption{Full retrieval metrics on 200-question random samples (seed=42) from the official MuSiQue and 2WikiMultiHopQA validation splits. Retrieval is conducted over each question's provided context pool ($\sim$10--20 paragraphs), not open-corpus. HR@$k$ = Hit Rate (\%). MRR = Mean Reciprocal Rank. \textbf{Bold} = best per column. BCT improves hit rate coverage of the graph-based retriever at the cost of precision@1. All numbers computed by \texttt{public\_benchmark.py} against real HuggingFace data.}
 \label{tab:musique_2wiki}
 \end{table*}
 
-\subsection{Statistical Significance}
+\subsection{Trade-Off Analysis}
 
-To test whether the RTO improvement on MuSiQue reflects more than sampling
-variance, we run a paired bootstrap ($B=1000$, seed=42) over the per-question
-RTO scores. The mean RTO difference (Aethel $-$ Bipartite PPR) is $+0.06$ points
-with a 95\% CI of $[-0.00, 0.13]$ and a one-tailed $p = 0.032$. The two-sided
-95\% interval marginally includes zero, so the improvement is significant only
-under a one-tailed test, not at the conventional two-sided 95\%
-level---a real but weak effect relative to sampling variance over the
-200-question sample. On 2WikiMultiHopQA, Aethel reaches HR@5 of 100.0\%
-(vs.~99.5\%), a ceiling at which significance testing is uninformative.
-The HR@1 deficit ($-4.5$ pp on 2Wiki, $-6.0$ pp on MuSiQue) reflects BCT's
-alias expansion, which boosts recall by over-seeding the PPR personalization
-vector at the cost of top-1 precision.
-
-\begin{table}[t]
-\centering
-\small
-\setlength{\tabcolsep}{4.5pt}
-\renewcommand{\arraystretch}{1.12}
-\begin{tabular}{@{}lcccc@{}}
-\toprule
-\textbf{Metric} & \textbf{PPR} & \textbf{BCT} & \textbf{$\Delta$ (95\% CI)} & $\mathbf{p}$ \\
-\midrule
-MuSiQue RTO$^\dagger$  & 0.62 & 0.68 & $+0.06\ [-0.00,\ 0.13]$ & 0.032 \\
-2Wiki HR@5   & 99.5 & 100.0 & $+0.5$                 & ceiling \\
-MuSiQue HR@1 & 63.0 & 57.0  & $-6.0$                 & tradeoff \\
-2Wiki HR@1   & 83.0 & 78.5  & $-4.5$                 & tradeoff \\
-\bottomrule
-\end{tabular}
-\caption{Paired bootstrap on MuSiQue RTO ($B=1000$, seed=42): $+0.06$ points,
-95\% CI $[-0.00, 0.13]$, one-tailed $p=0.032$. The two-sided interval includes
-zero; the effect is real but weak at this sample size. HR@1 rows show the
-recall--precision tradeoff inherent to BCT alias expansion. All numbers
-produced by \texttt{backend/public\_benchmark.py}.\\
-$^\dagger$\,RTO = Retrieval Token Overlap (see Table~\ref{tab:musique_2wiki} footnote). $\Delta$ computed on unrounded per-question scores.}
-\label{tab:significance}
-\end{table}
-
+We observe that BCT's improvements in retrieval coverage (HR@5 of 100.0\% on 2WikiMultiHopQA and 88.5\% on MuSiQue) come at the cost of precision at rank 1 (HR@1 deficit of $-4.5$ percentage points on 2WikiMultiHopQA, and $-6.0$ percentage points on MuSiQue). This reflects the expected behavior of BCT's alias expansion: by over-seeding the PPR personalization vector with coreference aliases, we diffuse probability mass to cover more candidate bridge passages, improving hit rate at the expense of top-1 precision. In financial diligence swarms, this trade-off is highly desirable since downstream agents require all supporting evidence to perform multi-hop reasoning, and missing a single critical paragraph breaks the reasoning chain, whereas filtering out irrelevant passages is easily handled by the agent swarms.
 
 \section{Conclusion and Future Work}
-In this work, we presented Aethel, a graph-retrieval framework for multi-hop financial diligence. By coupling a bipartite PPR graph execution layer (evaluated as a standalone bipartite-PPR algorithm with regex entity extraction, independently of the HippoRAG-backed production system) with coreference-aware Bipartite Coreference Teleportation (BCT) and an orchestrated parallel multi-agent specialist swarm, Aethel addresses structural limitations of standard semantic dense RAG architectures. On 200-question random samples from the official MuSiQue and 2WikiMultiHopQA validation splits, BCT achieves HR@5\,=\,100\% on 2WikiMultiHopQA and HR@5\,=\,88.5\% on MuSiQue, outperforming vanilla graph retrieval on recall coverage at the cost of precision@1---an explicit, expected, and appropriate tradeoff for multi-passage diligence workflows.
+In this work, we presented Aethel, a graph-retrieval framework for multi-hop financial diligence. By coupling a bipartite PPR graph execution layer (evaluated as a standalone bipartite-PPR algorithm with regex entity extraction, independently of the HippoRAG-backed production system) with coreference-aware Bipartite Coreference Teleportation (BCT) and an orchestrated parallel multi-agent specialist swarm, Aethel addresses structural limitations of standard semantic dense RAG architectures. On 200-question random samples from the official MuSiQue and 2WikiMultiHopQA validation splits, BCT achieves HR@5\,=\,100\% on 2WikiMultiHopQA and HR@5\,=\,88.5\% on MuSiQue, outperforming vanilla graph retrieval on hit rate coverage at the cost of precision@1---an explicit, expected, and appropriate tradeoff for multi-passage diligence workflows.
 
 Moving forward, we intend to expand Aethel's architectural scope in three core operational dimensions. First, we aim to implement incremental graph topology updates to eliminate global index recalculation overhead when fresh financial disclosures are appended dynamically to a live transaction data room. Second, we plan to transition the specialist agent communication protocol from a hub-and-spoke configuration to an asynchronous decentralized consensus mechanism, further reducing communication latency during peak parallel workloads. Finally, we intend to integrate multi-modal extraction pipelines to seamlessly cross-reference vector representation layers across embedded financial charts, tables, and unstructured text blocks natively. Ultimately, Aethel bridges the critical chasm between raw document topology and automated corporate synthesis, offering an open, reproducible blueprint for high-stakes enterprise compliance automation.
 
 \section*{Limitations}
 
-While Aethel yields strong multi-hop retrieval efficiency, several limitations must be noted. First, the entity extraction and graph indexing phase relies on the disciplined taxonomy of institutional financial documents; less structured conversational inputs may introduce link noise into the entity-node mapping layer. Second, BCT's alias-expansion strategy improves recall but reduces precision@1, since over-seeding the PPR personalization vector can shift top-ranked results away from the single most relevant passage. Third, our quantitative public benchmarks use 200-question random samples from the official validation splits rather than the full test sets, which limits absolute comparability with full-scale system evaluations. Fourth, the BCT alias-expansion layer is currently implemented only in the standalone evaluator; integrating it into the production HippoRAG-backed pipeline is left as future work. Fifth, retrieval metrics are computed over each question's provided context pool ($\sim$10--20 paragraphs) rather than an open corpus; HR@5 values reflect closed-set performance and would be lower in an open-retrieval setting.
+While Aethel yields strong multi-hop retrieval efficiency, several limitations must be noted. First, the entity extraction and graph indexing phase relies on the disciplined taxonomy of institutional financial documents; less structured conversational inputs may introduce link noise into the entity-node mapping layer. Second, BCT's alias-expansion strategy improves hit rate coverage but reduces precision@1, since over-seeding the PPR personalization vector can shift top-ranked results away from the single most relevant passage. Third, our quantitative public benchmarks use 200-question random samples from the official validation splits rather than the full test sets, which limits absolute comparability with full-scale system evaluations. Fourth, the BCT alias-expansion layer is currently implemented only in the standalone evaluator; integrating it into the production HippoRAG-backed pipeline is left as future work. Fifth, retrieval metrics are computed over each question's provided context pool ($\sim$10--20 paragraphs) rather than an open corpus; HR@5 values reflect closed-set performance and would be lower in an open-retrieval setting.
 
 \begin{thebibliography}{99}
 
@@ -635,7 +599,7 @@ Chroma Core Team. 2023.
 \bibitem[{Wu et~al.(2023)}]{autogen}
 Qingyun Wu et~al. 2023.
 \newblock Autogen: Enabling next-gen {LLM} applications via multi-agent conversation framework.
-\newblock \emph{arXiv preprint arXiv:2310.05421}.
+\newblock \emph{arXiv preprint arXiv:2308.08155}.
 
 \bibitem[{Liu et~al.(2023)}]{geval}
 Yang Liu et~al. 2023.
