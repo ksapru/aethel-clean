@@ -30,7 +30,7 @@ All numbers below come from `backend/public_benchmark.py` running against the of
 | Bipartite PPR   | 0.830 | 0.970 | 0.995 | 0.900 | 0.630 | 0.800 | 0.875 | 0.721 |
 | Aethel (PPR+BCT) | 0.785 | 0.980 | **1.000** | 0.877 | 0.570 | 0.785 | 0.885 | 0.687 |
 
-**Key result:** BCT wins on HR@5 (both datasets) and HR@3 — the coverage-oriented metrics. Bipartite PPR wins on HR@1 and MRR — precision-oriented metrics. This is the expected tradeoff: BCT alias expansion seeds more starting nodes in the PPR walk, surfacing more supporting passages at the cost of top-1 rank.
+**Key result:** BCT wins on HR@5 (both datasets); on HR@3 it improves over PPR on 2Wiki but not MuSiQue. Bipartite PPR wins HR@1 and MRR.
 
 
 ## Reproducing the Results
