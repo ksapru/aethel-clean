@@ -238,7 +238,7 @@ To summarize our core contributions:
 \subsection{Graph-Augmented Retrieval}
 Traditional dense Retrieval-Augmented Generation (RAG) frameworks rely primarily on isolated semantic vector embeddings, which suffer from a fundamental structural breakdown when answering queries that span disjoint documents or require topological reasoning \cite{lewis2020rag}. To bridge this gap, recent paradigms inject structured domain Knowledge Graphs (KGs) into the information discovery loop. Early implementations utilized localized entity-linking pipelines to extract sub-graphs, routing them along with the text chunks into individual model contexts \cite{karpukhin2020dpr}.
 
-More recently, frameworks like GraphRAG have shifted toward synthesizing global community summaries across hierarchical cluster maps \cite{edge2024graphrag}. However, these approaches incur immense computational and API token overhead when dealing with highly fluid, high-volume data streams. To combat this operational cost, systems like HippoRAG explore personalized PageRank iterations directly over sparse, text-extracted bipartite entity-passage topologies, bypassing costly global summaries while maintaining competitive structural retrieval capabilities \cite{gutierrez2025hipporag2}. Similarly, HybridRAG \cite{mehta2024hybridrag} combines knowledge graphs and vector retrieval to improve question answering over complex financial and enterprise document collections. Our framework, \textit{Aethel}, extends this graph-walk paradigm by modifying it specifically for noisy, high-density financial documents containing complex tabular ledgers.
+More recently, frameworks like GraphRAG have shifted toward synthesizing global community summaries across hierarchical cluster maps \cite{edge2024graphrag}. However, these approaches incur immense computational and API token overhead when dealing with highly fluid, high-volume data streams. To combat this operational cost, systems like HippoRAG explore personalized PageRank iterations directly over sparse, text-extracted bipartite entity-passage topologies, bypassing costly global summaries while maintaining competitive structural retrieval capabilities \cite{gutierrez2025hipporag2}. Similarly, HybridRAG \cite{sarmah2024hybridrag} combines knowledge graphs and vector retrieval to improve question answering over complex financial and enterprise document collections. Our framework, \textit{Aethel}, extends this graph-walk paradigm by modifying it specifically for noisy, high-density financial documents containing complex tabular ledgers.
 
 \subsection{Multi-Agent Collaboration and Swarms}
 Paralleling advancements in structural retrieval, substantial attention has turned toward substituting monolithic language models with specialized multi-agent orchestrations \cite{autogen}. Rather than depending on a single inference sequence to aggregate data, multi-agent frameworks divide complex problems into distinct, specialized components managed by independent behavioral prompts.
@@ -636,10 +636,10 @@ Xanh Ho et~al. 2020.
 \newblock Constructing a multi-hop QA dataset for comprehensive evaluation of reasoning steps.
 \newblock \emph{Proceedings of the 28th International Conference on Computational Linguistics (COLING 2020)}.
 
-\bibitem[{Mehta et~al.(2024)}]{mehta2024hybridrag}
-Deep Mehta et~al. 2024.
-\newblock HybridRAG: Integrating knowledge graphs and vector databases for financial question answering.
-\newblock \emph{Proceedings of the 5th ACM International Conference on AI in Finance (ICAIF 2024)}.
+\bibitem[{Sarmah et~al.(2024)}]{sarmah2024hybridrag}
+Bhaskarjit Sarmah, Dhagash Mehta, Benika Hall, Rohan Rao, Sunil Patel, and Stefano Pasquali. 2024.
+\newblock HybridRAG: Integrating knowledge graphs and vector retrieval augmented generation for efficient information extraction.
+\newblock \emph{Proceedings of the 5th ACM International Conference on AI in Finance (ICAIF 2024)}, pages 608--616.
 
 \end{thebibliography}
 
