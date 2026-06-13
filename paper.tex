@@ -101,33 +101,33 @@ To handle these relational gaps, recent literature has shifted toward Graph-Augm
 ]
 
 % Row 1
-\node[box, fill=blue!8] (docs) at (0,0) {
+\node[box, fill=blue!8] (docs) at (-2.75,0) {
     \textbf{Docs}\\[-1pt]
-    \tiny PDFs, CSVs, Excel
+    \tiny PDFs, CSVs
 };
 
-\node[box, fill=blue!8] (ingest) at (2.75,0) {
+\node[box, fill=blue!8] (ingest) at (0,0) {
     \textbf{Ingest}\\[-1pt]
-    \tiny text extraction + chunking
+    \tiny text extraction 
 };
 
-\node[box, fill=aethelPurple!18] (graph) at (5.50,0) {
+\node[box, fill=aethelPurple!18] (graph) at (2.75,0) {
     \textbf{Graph}\\[-1pt]
     \tiny entities + passages
 };
 
 % Row 2
-\node[box, fill=aethelPurple!25] (orch) at (0,-1.35) {
+\node[box, fill=aethelPurple!25] (orch) at (-2.75,-1.35) {
     \textbf{Orchestrator}\\[-1pt]
     \tiny routes evidence
 };
 
-\node[box, fill=aethelGreen!22] (agents) at (2.75,-1.35) {
+\node[box, fill=aethelGreen!22] (agents) at (0,-1.35) {
     \textbf{Agents}\\[-1pt]
     \tiny valuation, leverage
 };
 
-\node[box, fill=aethelGold!35] (memo) at (5.50,-1.35) {
+\node[box, fill=aethelGold!35] (memo) at (2.75,-1.35) {
     \textbf{IC Memo}\\[-1pt]
     \tiny risks + metrics
 };
@@ -162,75 +162,7 @@ To summarize our core contributions:
 
 
 
-\begin{figure*}[t]
-\centering
-% This forces the hardcoded grid to dynamically shrink to fit your column perfectly
-\resizebox{\columnwidth}{!}{
-\begin{tikzpicture}[
-    node distance=1.0cm and 0.15cm, 
-    transparent_box/.style={draw=gray!60, dashed, fill=gray!5, rounded corners, inner sep=4pt}, 
-    io/.style={draw=blue!70, fill=blue!5, rectangle, minimum width=4cm, minimum height=0.7cm, font=\bfseries\small},
-    orc/.style={draw=purple!70, fill=purple!5, rectangle, minimum width=4cm, minimum height=0.7cm, font=\bfseries\small},
-    spec/.style={draw=orange!70, fill=orange!5, rectangle, minimum width=2.2cm, minimum height=0.7cm, font=\bfseries\scriptsize, text width=2.0cm, align=center},
-    synth/.style={draw=green!70, fill=green!5, rectangle, minimum width=4cm, minimum height=0.7cm, font=\bfseries\small},
-    arrow/.style={thick,->,>=stealth,draw=gray!80}
-]
-    % Nodes (Perfectly centered using exact, fixed grid dimensions)
-    \node (input) at (0, 2.2) [io] {Input Diligence Query};
-    \node (orchestrator) at (0, 1.0) [orc] {Orchestrator Node};
-    
-    % Specialist Row (Hardcoded across a beautifully balanced horizontal plane)
-    \node (liq) at (-3.4, -0.6) [spec] {Liquidity Specialist};
-    \node (val) at (-1.1, -0.6) [spec] {Valuation Auditor};
-    \node (dil) at (1.1, -0.6) [spec] {Diligence Auditor};
-    
-    % Explicitly styled inline to bypass the custom style key compiler error
-    \node (mkt) at (3.4, -0.6) [draw=cyan!70, fill=cyan!5, rectangle, minimum width=2.2cm, minimum height=0.7cm, font=\bfseries\scriptsize, text width=2.0cm, align=center] {Market Research\\(Web Search)};
-    
-    % Compressed vertical synthesizer placement
-    \node (synthesizer) at (0, -2.2) [synth] {Synthesizer Node};
-    \node (output) at (0, -3.4) [io] {Final Approved Diligence Memo};
-
-    % Layer groupings
-    \begin{scope}[on background layer]
-        \node[transparent_box, fit=(liq) (val) (dil) (mkt), inner sep=6pt] (swarm_box) {};
-    \end{scope}
-
-    % Trajectories (Using white-masked inline labels to guarantee zero line-cutting)
-    \draw [thick,draw=gray!80] (input.south) -- (orchestrator.north);
-    
-    % Top routing splits (Horizontal bus line)
-    \draw [thick,draw=gray!80] (orchestrator.south) -- (0, 0.35);
-    \draw [thick,draw=gray!80] (-3.4, 0.35) -- (3.4, 0.35);
-    
-    % Clear vertical drop arrows down to each specialist
-    \draw [arrow] (-3.4, 0.35) -- (liq.north);
-    \draw [arrow] (-1.1, 0.35) -- (val.north);
-    \draw [arrow] (1.1, 0.35) -- (dil.north);
-    \draw [arrow] (3.4, 0.35) -- (mkt.north);
-    
-    % Inline text label that beautifully breaks the top horizontal line
-    \node at (-2.25, 0.35) [fill=white, inner sep=2pt, font=\scriptsize] {Decompose \& Task};
-    
-    % Bottom routing merges (Horizontal bus line)
-    \draw [thick,draw=gray!80] (liq.south) -- (-3.4, -1.45);
-    \draw [thick,draw=gray!80] (val.south) -- (-1.1, -1.45);
-    \draw [thick,draw=gray!80] (dil.south) -- (1.1, -1.45);
-    \draw [thick,draw=gray!80] (mkt.south) -- (3.4, -1.45);
-    
-    \draw [thick,draw=gray!80] (-3.4, -1.45) -- (3.4, -1.45);
-    
-    % Inline text label that beautifully breaks the bottom horizontal line
-    \node at (2.25, -1.45) [fill=white, inner sep=2pt, font=\scriptsize] {Consensus Loop};
-    
-    % Final drops down to output
-    \draw [arrow] (0, -1.45) -- (synthesizer.north);
-    \draw [arrow] (synthesizer.south) -- (output.north);
-\end{tikzpicture}
-}
-\caption{The modular structural visualization of Aethel's parallel multi-agent swarm pipeline execution.}
-\label{fig:architecture}
-\end{figure*}
+See Appendix~\ref{sec:appendix_swarm} for a full-page visualization of the (unbenchmarked) specialist swarm execution diagram.
 
 \section{Related Work}
 \label{sec:related_work}
@@ -267,14 +199,7 @@ The Aethel Swarm is comprised of the following specialized nodes:
 \end{itemize}
 
 
-\subsection{Diligence User Interface Architecture}
-
-To support financial workflows, Aethel includes an interface designed for evaluation transparency and citation verification:
-\begin{itemize}[noitemsep,topsep=2pt]
-    \item \textbf{Interactive Diligence Swarm Logger}: Provides real-time visualization of side-by-side specialist audits coordinated by the orchestrator.
-    \item \textbf{Graph Multi-Hop Retrieval Visualizer}: Highlights exact PPR bipartite paths (e.g., \textit{Stripe} $\rightarrow$ \textit{Apollo} $\rightarrow$ \textit{Unfunded Commitments}) with clickable page/line metadata citations.
-    \item \textbf{Consensus Verdict Dashboard}: Integrates specialist checklists and feature cards for data gaps, utilizing structured visual tracking elements and tabular figures for precise financial reporting.
-\end{itemize}
+Implementation UI details are provided in Appendix~\ref{sec:appendix_ui}.
 
 \section{Mathematical Multi-Hop Framework}
 
@@ -393,11 +318,11 @@ variation weakens direct lexical matching.
 \draw[arrow] (q) -- node[pill, pos=0.40, right=-8pt] {seed} (ppr);
 
 % PPR diffuses mass into seed entities (not into a single passage)
-\draw[arrow] (ppr.west) -- ++(-6mm,0) |- node[pill, pos=0.25] {$\mathbf{s}$} (e1.west);
+\draw[arrow] (ppr.west) -- ++(-6mm,0) |- node[pill, pos=0.25] {$\mathbf{s}$} (e1.east);
 
 % Ranking: all passages receive steady-state mass; top-K are selected
 \node (topk) [query, below=12mm of p3] {Top-$K$ Passages};
-\draw[arrow] (p3.south) -- ++(0,-4mm) |- node[pill, pos=0.06] {rank by $\mathbf{p}$} (topk.north);
+\draw (p3.south) -- ++(0,-2mm) |- node[pill, pos=0.06] {rank by $\mathbf{p}$} (topk.north);
 
 % Legend
 \node[font=\scriptsize, text=gray!70, below=1mm of topk, text width=5.5cm, align=center]
@@ -422,9 +347,9 @@ The system maintains consistent performance as corpus size increases. Linear LLM
     symbolic x coords={MuSiQue,2WikiMultiHopQA},
     xtick=data,
     ybar,
-    bar width=8pt,
+    bar width=14pt,
     ymin=80,
-    ymax=105,
+    ymax=120,
     ymajorgrids=true,
     grid style={dashed, gray!35},
     tick label style={font=\small},
@@ -518,47 +443,41 @@ We report (i) real benchmark performance on established multi-hop QA datasets an
 
 \subsection{Domain Bridge: Mapping General QA to Financial Diligence}
 
-Absent a public benchmark for PE diligence, we evaluate on two established multi-hop QA datasets and argue by analogy that the retrieval challenges they exercise are structurally similar to those in PE document analysis.
-
-MuSiQue \cite{trivedi2022musique} is constructed to stress compositional retrieval: each question requires following a connected chain of evidence across multiple passages. Systems that retrieve plausible but incomplete evidence sets fail because a single missing bridge passage breaks the full reasoning chain. This structure is analogous to PE diligence, where a single missing link in an auditing chain (e.g., \textbf{Portfolio Company} $\rightarrow$ \textbf{Capital Account Ledger} $\rightarrow$ \textbf{Fund Entity} $\rightarrow$ \textbf{Unfunded Liability}) similarly invalidates the downstream analysis. We do not claim the two domains are identical---the claim is that multi-hop retrieval capability, as measured on MuSiQue, is a necessary (though not sufficient) condition for PE diligence retrieval.
-
-In contrast, 2WikiMultiHopQA \cite{ho2020constructing} stresses multi-document coreference and entity tracking across dispersed files (HR@5). This is analogous to the challenge of tracking capital accounts across separate LP letters, general partner disclosures, and public filings. We use performance on these benchmarks as a proxy for cross-document retrieval capability, while acknowledging that a proper PE diligence evaluation would require domain-specific annotated queries, which we leave as future work.
+Absent a public benchmark for PE diligence, we use MuSiQue and 2WikiMultiHopQA as proxies for (i) compositional multi-hop retrieval and (ii) cross-document coreference tracking, respectively; full motivation and analogy are provided in Appendix~\ref{sec:appendix_domain_bridge}.
 
 \subsection{Public Benchmark Evaluation (MuSiQue, 2WikiMultiHopQA)}
 
-Table~\ref{tab:musique_2wiki} reports the retrieval metric suite on 200-question random samples from both benchmarks. We report HR@1, HR@3, HR@5, and MRR. Importantly, because the evaluation is performed over each question's closed context pool ($\sim$10--20 paragraphs), the dense bi-encoder baseline (MiniLM) achieves very high absolute performance (e.g., 96.0\% HR@5 on MuSiQue). This is expected since dense embeddings are highly effective at short-list ranking where the distraction pool is small and open-domain false positives are absent. However, dense bi-encoders rely entirely on continuous vector representations and fail to provide the hard, topological audit trails required for regulated due diligence workflows.
-
-Comparing the graph-based retrievers, we observe a clear \textbf{precision--coverage tradeoff} introduced by Aethel's BCT layer: BCT improves graph retrieval coverage (HR@5 from 87.5\% to 88.5\% on MuSiQue, and from 99.5\% to 100.0\% on 2WikiMultiHopQA) at the cost of precision@1 (HR@1: 57.0\% vs.~63.0\% on MuSiQue). This is the \emph{correct} tradeoff for multi-passage diligence workflows, where downstream specialist agents require \emph{all} gold supporting passages in the context window to perform multi-hop synthesis and numerical auditing---not merely the single top-ranked passage.
-
-\begin{table*}[t]
+\begin{table}[t]
 \centering
-\small
-\setlength{\tabcolsep}{5.5pt}
-\renewcommand{\arraystretch}{1.15}
-\begin{tabular}{@{}lccccccccc@{}}
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\renewcommand{\arraystretch}{1.05}
+\begin{tabular}{@{}llcccc@{}}
 \toprule
-\textbf{Method} & \multicolumn{4}{c}{\textbf{2WikiMultiHopQA}} & & \multicolumn{4}{c}{\textbf{MuSiQue}} \\
-\cmidrule(lr){2-5} \cmidrule(lr){7-10}
- & \textbf{HR@1} & \textbf{HR@3} & \textbf{HR@5} & \textbf{MRR} & & \textbf{HR@1} & \textbf{HR@3} & \textbf{HR@5} & \textbf{MRR} \\
+\textbf{Dataset} & \textbf{Method} & \textbf{HR@1} & \textbf{HR@3} & \textbf{HR@5} & \textbf{MRR} \\
 \midrule
-Sparse (TF-IDF) & 79.0 & 96.5 & 99.0 & 0.873 & & 58.0 & 78.0 & 84.5 & 0.681 \\
-Dense (MiniLM)  & \textbf{90.0} & \textbf{99.0} & 99.5 & \textbf{0.940} & & \textbf{76.5} & \textbf{93.5} & \textbf{96.0} & \textbf{0.849} \\
-Graph (PPR)     & 83.0 & 97.0 & 99.5 & 0.900 & & 63.0 & 80.0 & 87.5 & 0.721 \\
-\textbf{Aethel (PPR+BCT)} & 78.5 & 98.0 & \textbf{100.0} & 0.877 & & 57.0 & 78.5 & 88.5 & 0.687 \\
+2WikiMultiHopQA & Sparse (TF-IDF) & 79.0 & 96.5 & 99.0 & 0.873 \\
+2WikiMultiHopQA & Dense (MiniLM)  & \textbf{90.0} & \textbf{99.0} & 99.5 & \textbf{0.940} \\
+2WikiMultiHopQA & Graph (PPR)     & 83.0 & 97.0 & 99.5 & 0.900 \\
+2WikiMultiHopQA & \textbf{Aethel (PPR+BCT)} & 78.5 & 98.0 & \textbf{100.0} & 0.877 \\
+\addlinespace
+MuSiQue         & Sparse (TF-IDF) & 58.0 & 78.0 & 84.5 & 0.681 \\
+MuSiQue         & Dense (MiniLM)  & \textbf{76.5} & \textbf{93.5} & \textbf{96.0} & \textbf{0.849} \\
+MuSiQue         & Graph (PPR)     & 63.0 & 80.0 & 87.5 & 0.721 \\
+MuSiQue         & \textbf{Aethel (PPR+BCT)} & 57.0 & 78.5 & 88.5 & 0.687 \\
 \bottomrule
 \end{tabular}
-\caption{Full retrieval metrics on 200-question random samples (seed=42) from the official MuSiQue and 2WikiMultiHopQA validation splits. Retrieval is conducted over each question's provided context pool ($\sim$10--20 paragraphs), not open-corpus. HR@$k$ = Hit Rate (\%). MRR = Mean Reciprocal Rank. \textbf{Bold} = best per column. BCT improves hit rate coverage of the graph-based retriever at the cost of precision@1. All numbers computed by \texttt{public\_benchmark.py} against real HuggingFace data.}
+\caption{Full retrieval metrics on 200-question random samples (seed=42) from the official MuSiQue and 2WikiMultiHopQA validation splits. Retrieval is conducted over each question's provided context pool ($\sim$10--20 paragraphs), not open-corpus. HR@$k$ = Hit Rate (\%). MRR = Mean Reciprocal Rank. \textbf{Bold} = best per dataset.}
 \label{tab:musique_2wiki}
-\end{table*}
+\end{table}
 
-\subsection{Trade-Off Analysis}
+Table~\ref{tab:musique_2wiki} reports HR@1/3/5 and MRR on 200-question random samples from both benchmarks. Because retrieval is evaluated over each question's closed context pool ($\sim$10--20 paragraphs), the dense bi-encoder baseline (MiniLM) achieves high absolute scores but does not provide auditable, topological retrieval trails. BCT improves graph retrieval coverage (e.g., MuSiQue HR@5 87.5\%$\rightarrow$88.5\%) at the cost of precision@1 (MuSiQue HR@1 63.0\%$\rightarrow$57.0\%), which matches the needs of multi-passage diligence workflows.
 
-We observe that BCT's improvements in retrieval coverage (HR@5 of 100.0\% on 2WikiMultiHopQA and 88.5\% on MuSiQue) come at the cost of precision at rank 1 (HR@1 deficit of $-4.5$ percentage points on 2WikiMultiHopQA, and $-6.0$ percentage points on MuSiQue). This reflects the expected behavior of BCT's alias expansion: by over-seeding the PPR personalization vector with coreference aliases, we diffuse probability mass to cover more candidate bridge passages, improving hit rate at the expense of top-1 precision. In financial diligence swarms, this trade-off is highly desirable since downstream agents require all supporting evidence to perform multi-hop reasoning, and missing a single critical paragraph breaks the reasoning chain, whereas filtering out irrelevant passages is easily handled by the agent swarms.
 
 \section{Conclusion and Future Work}
 In this work, we presented Aethel, a graph-retrieval framework for multi-hop financial diligence. By coupling a bipartite PPR graph execution layer (evaluated as a standalone bipartite-PPR algorithm with regex entity extraction, independently of the HippoRAG-backed production system) with coreference-aware Bipartite Coreference Teleportation (BCT) and an orchestrated parallel multi-agent specialist swarm, Aethel addresses structural limitations of standard semantic dense RAG architectures. On 200-question random samples from the official MuSiQue and 2WikiMultiHopQA validation splits, BCT achieves HR@5\,=\,100\% on 2WikiMultiHopQA and HR@5\,=\,88.5\% on MuSiQue, outperforming vanilla graph retrieval on hit rate coverage at the cost of precision@1---an explicit, expected, and appropriate tradeoff for multi-passage diligence workflows.
 
-Moving forward, we intend to expand Aethel's architectural scope in three core operational dimensions. First, we aim to implement incremental graph topology updates to eliminate global index recalculation overhead when fresh financial disclosures are appended dynamically to a live transaction data room. Second, we plan to transition the specialist agent communication protocol from a hub-and-spoke configuration to an asynchronous decentralized consensus mechanism, further reducing communication latency during peak parallel workloads. Finally, we intend to integrate multi-modal extraction pipelines to seamlessly cross-reference vector representation layers across embedded financial charts, tables, and unstructured text blocks natively. Ultimately, Aethel bridges the critical chasm between raw document topology and automated corporate synthesis, offering an open, reproducible blueprint for high-stakes enterprise compliance automation.
+Future work includes integrating BCT into the HippoRAG-backed production pipeline and evaluating the specialist swarm end-to-end on a domain-specific diligence benchmark.
 
 \section*{Limitations}
 
@@ -576,35 +495,17 @@ Bernal~Jim{\'e}nez Guti{\'e}rrez et~al. 2025.
 \newblock From {RAG} to memory: Non-parametric continual learning with Hippo{RAG} 2.
 \newblock \emph{arXiv preprint arXiv:2502.14802}.
 
-\bibitem[{Gao et~al.(2022)}]{hyde}
-Luyu Gao et~al. 2022.
-\newblock Precise zero-shot dense retrieval without relevance labels.
-\newblock \emph{arXiv preprint arXiv:2212.10496}.
-
-\bibitem[{Reimers and Gurevych(2019)}]{crossencoder}
-Nils Reimers and Iryna Gurevych. 2019.
-\newblock Sentence-{BERT}: Sentence embeddings using Siamese BERT-networks.
-\newblock \emph{Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing (EMNLP 2019)}.
 
 \bibitem[{Page et~al.(1999)}]{page1999pagerank}
 Lawrence Page et~al. 1999.
 \newblock The PageRank citation ranking: Bringing order to the web.
 \newblock \emph{Stanford InfoLab Technical Report}.
 
-\bibitem[{Chroma(2023)}]{chromadb}
-Chroma Core Team. 2023.
-\newblock Chroma: The AI-native open-source embedding database.
-\newblock \url{https://github.com/chroma-core/chroma}.
 
 \bibitem[{Wu et~al.(2023)}]{autogen}
 Qingyun Wu et~al. 2023.
 \newblock Autogen: Enabling next-gen {LLM} applications via multi-agent conversation framework.
 \newblock \emph{arXiv preprint arXiv:2308.08155}.
-
-\bibitem[{Liu et~al.(2023)}]{geval}
-Yang Liu et~al. 2023.
-\newblock G-eval: {NLG} evaluation using {GPT}-4 with better human alignment.
-\newblock \emph{Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing (EMNLP 2023)}.
 
 \bibitem[{Lewis et~al.(2020)}]{lewis2020rag}
 Patrick Lewis et~al. 2020.
@@ -646,8 +547,100 @@ Bhaskarjit Sarmah, Dhagash Mehta, Benika Hall, Rohan Rao, Sunil Patel, and Stefa
 \clearpage
 \appendix
 
-\section{Prompt Templates and Swarm Agent System Directives}
-\label{sec:appendix_prompts}
+\section{Additional System Details}
+\label{sec:appendix_system_details}
+
+\subsection{Specialist Swarm Execution Diagram}
+\label{sec:appendix_swarm}
+\begin{figure*}[t]
+\centering
+% This forces the hardcoded grid to dynamically shrink to fit your column perfectly
+\resizebox{\columnwidth}{!}{
+\begin{tikzpicture}[
+    node distance=1.0cm and 0.15cm, 
+    transparent_box/.style={draw=gray!60, dashed, fill=gray!5, rounded corners, inner sep=4pt}, 
+    io/.style={draw=blue!70, fill=blue!5, rectangle, minimum width=4cm, minimum height=0.7cm, font=\bfseries\small},
+    orc/.style={draw=purple!70, fill=purple!5, rectangle, minimum width=4cm, minimum height=0.7cm, font=\bfseries\small},
+    spec/.style={draw=orange!70, fill=orange!5, rectangle, minimum width=2.2cm, minimum height=0.7cm, font=\bfseries\scriptsize, text width=2.0cm, align=center},
+    synth/.style={draw=green!70, fill=green!5, rectangle, minimum width=4cm, minimum height=0.7cm, font=\bfseries\small},
+    arrow/.style={thick,->,>=stealth,draw=gray!80}
+]
+    % Nodes (Perfectly centered using exact, fixed grid dimensions)
+    \node (input) at (0, 2.2) [io] {Input Diligence Query};
+    \node (orchestrator) at (0, 1.0) [orc] {Orchestrator Node};
+    
+    % Specialist Row (Hardcoded across a beautifully balanced horizontal plane)
+    \node (liq) at (-3.4, -0.6) [spec] {Liquidity Specialist};
+    \node (val) at (-1.1, -0.6) [spec] {Valuation Auditor};
+    \node (dil) at (1.1, -0.6) [spec] {Diligence Auditor};
+    
+    % Explicitly styled inline to bypass the custom style key compiler error
+    \node (mkt) at (3.4, -0.6) [draw=cyan!70, fill=cyan!5, rectangle, minimum width=2.2cm, minimum height=0.7cm, font=\bfseries\scriptsize, text width=2.0cm, align=center] {Market Research\\(Web Search)};
+    
+    % Compressed vertical synthesizer placement
+    \node (synthesizer) at (0, -2.2) [synth] {Synthesizer Node};
+    \node (output) at (0, -3.4) [io] {Final Approved Diligence Memo};
+
+    % Layer groupings
+    \begin{scope}[on background layer]
+        \node[transparent_box, fit=(liq) (val) (dil) (mkt), inner sep=6pt] (swarm_box) {};
+    \end{scope}
+
+    % Trajectories (Using white-masked inline labels to guarantee zero line-cutting)
+    \draw [thick,draw=gray!80] (input.south) -- (orchestrator.north);
+    
+    % Top routing splits (Horizontal bus line)
+    \draw [thick,draw=gray!80] (orchestrator.south) -- (0, 0.35);
+    \draw [thick,draw=gray!80] (-3.4, 0.35) -- (3.4, 0.35);
+    
+    % Clear vertical drop arrows down to each specialist
+    \draw [arrow] (-3.4, 0.35) -- (liq.north);
+    \draw [arrow] (-1.1, 0.35) -- (val.north);
+    \draw [arrow] (1.1, 0.35) -- (dil.north);
+    \draw [arrow] (3.4, 0.35) -- (mkt.north);
+    
+    % Inline text label that beautifully breaks the top horizontal line
+    \node at (-2.25, 0.35) [fill=white, inner sep=2pt, font=\scriptsize] {Decompose \& Task};
+    
+    % Bottom routing merges (Horizontal bus line)
+    \draw [thick,draw=gray!80] (liq.south) -- (-3.4, -1.45);
+    \draw [thick,draw=gray!80] (val.south) -- (-1.1, -1.45);
+    \draw [thick,draw=gray!80] (dil.south) -- (1.1, -1.45);
+    \draw [thick,draw=gray!80] (mkt.south) -- (3.4, -1.45);
+    
+    \draw [thick,draw=gray!80] (-3.4, -1.45) -- (3.4, -1.45);
+    
+    % Inline text label that beautifully breaks the bottom horizontal line
+    \node at (2.25, -1.45) [fill=white, inner sep=2pt, font=\scriptsize] {Consensus Loop};
+    
+    % Final drops down to output
+    \draw [arrow] (0, -1.45) -- (synthesizer.north);
+    \draw [arrow] (synthesizer.south) -- (output.north);
+\end{tikzpicture}
+}
+\caption{The modular structural visualization of Aethel's parallel multi-agent swarm pipeline execution.}
+\label{fig:architecture}
+\end{figure*}
+
+\subsection{Diligence User Interface Architecture}
+\label{sec:appendix_ui}
+To support financial workflows, Aethel includes an interface designed for evaluation transparency and citation verification:
+\begin{itemize}[noitemsep,topsep=2pt]
+    \item \textbf{Interactive Diligence Swarm Logger}: Provides real-time visualization of side-by-side specialist audits coordinated by the orchestrator.
+    \item \textbf{Graph Multi-Hop Retrieval Visualizer}: Highlights exact PPR bipartite paths (e.g., \textit{Stripe} $\rightarrow$ \textit{Apollo} $\rightarrow$ \textit{Unfunded Commitments}) with clickable page/line metadata citations.
+    \item \textbf{Consensus Verdict Dashboard}: Integrates specialist checklists and feature cards for data gaps, utilizing structured visual tracking elements and tabular figures for precise financial reporting.
+\end{itemize}
+
+
+\subsection{Domain Bridge: Mapping General QA to Financial Diligence (Expanded)}
+\label{sec:appendix_domain_bridge}
+Absent a public benchmark for PE diligence, we evaluate on two established multi-hop QA datasets and argue by analogy that the retrieval challenges they exercise are structurally similar to those in PE document analysis.
+
+MuSiQue \cite{trivedi2022musique} is constructed to stress compositional retrieval: each question requires following a connected chain of evidence across multiple passages. Systems that retrieve plausible but incomplete evidence sets fail because a single missing bridge passage breaks the full reasoning chain. This structure is analogous to PE diligence, where a single missing link in an auditing chain (e.g., \textbf{Portfolio Company} $\rightarrow$ \textbf{Capital Account Ledger} $\rightarrow$ \textbf{Fund Entity} $\rightarrow$ \textbf{Unfunded Liability}) similarly invalidates the downstream analysis. We do not claim the two domains are identical---the claim is that multi-hop retrieval capability, as measured on MuSiQue, is a necessary (though not sufficient) condition for PE diligence retrieval.
+
+In contrast, 2WikiMultiHopQA \cite{ho2020constructing} stresses multi-document coreference and entity tracking across dispersed files (HR@5). This is analogous to the challenge of tracking capital accounts across separate LP letters, general partner disclosures, and public filings. We use performance on these benchmarks as a proxy for cross-document retrieval capability, while acknowledging that a proper PE diligence evaluation would require domain-specific annotated queries, which we leave as future work.
+
+\section{Prompt Templates and Swarm Agent System Directives}\label{sec:appendix_prompts}
 This section documents the formal execution prompts, schema constraints, and systemic context bounds assigned to each edge agent operating within the parallel multi-agent swarm architecture.
 
 \subsection{Orchestrator Routing Node Micro-Logic}
