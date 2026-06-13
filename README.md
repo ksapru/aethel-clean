@@ -30,7 +30,7 @@ All numbers below come from `backend/public_benchmark.py` running against the of
 | Bipartite PPR   | 0.830 | 0.970 | 0.995 | 0.900 | 0.630 | 0.800 | 0.875 | 0.721 |
 | Aethel (PPR+BCT) | 0.785 | 0.980 | **1.000** | 0.877 | 0.570 | 0.785 | 0.885 | 0.687 |
 
-**Key result:** BCT wins on HR@5 (both datasets); on HR@3 it improves over PPR on 2Wiki but not MuSiQue. Bipartite PPR wins HR@1 and MRR.
+**Key result:** BCT improves HR@5 over Bipartite PPR on both datasets (and HR@3 on 2Wiki, not MuSiQue), at the cost of HR@1. The dense bi-encoder (MiniLM) posts the highest HR@1 and MRR on both datasets; Aethel's contribution is retrieval coverage (HR@5) with an explicit, auditable graph trail — not top-1 precision.
 
 
 ## Reproducing the Results
