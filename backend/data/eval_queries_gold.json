@@ -1,0 +1,302 @@
+[
+  {
+    "query": "What was Apollo's Fee-Related Earnings (FRE) in Q1 2026?",
+    "gold_chunk_ids": [
+      "apollo_earnings.txt_chunk_0"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "What was Apollo's origination volume in Q1 2026?",
+    "gold_chunk_ids": [
+      "apollo_earnings.txt_chunk_0"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "What net IRR did Apollo's Fund 10 private equity report in Q1 2026?",
+    "gold_chunk_ids": [
+      "apollo_earnings.txt_chunk_0"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "What was Blackstone's distributable earnings in Q1 2026?",
+    "gold_chunk_ids": [
+      "blackstone_earnings.txt_chunk_0"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "What was the total Assets Under Management (AUM) reached by Blackstone in Q1 2026?",
+    "gold_chunk_ids": [
+      "blackstone_earnings.txt_chunk_0"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "What was the total global secondary market volume in H1 2025?",
+    "gold_chunk_ids": [
+      "Jefferies-Global-Secondary-Market-Review-July-2025.pdf_chunk_0"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "What was the LP transaction volume in the secondary market in H1 2025?",
+    "gold_chunk_ids": [
+      "Jefferies-Global-Secondary-Market-Review-July-2025.pdf_chunk_7"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "What percentage of total secondary volume did structured transactions make up in H1 2025?",
+    "gold_chunk_ids": [
+      "Jefferies-Global-Secondary-Market-Review-July-2025.pdf_chunk_9"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "To what percentage of NAV did venture pricing increase in H1 2025?",
+    "gold_chunk_ids": [
+      "Jefferies-Global-Secondary-Market-Review-July-2025.pdf_chunk_20"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "What gain did the S&P post in the first half of the year according to the Jefferies H1 2025 report?",
+    "gold_chunk_ids": [
+      "Jefferies-Global-Secondary-Market-Review-July-2025.pdf_chunk_19"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "What is the secondary market expected to reach in total transaction volume for 2026?",
+    "gold_chunk_ids": [
+      "continuation_vehicle_report.pdf_chunk_0"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "What percentage of continuation vehicle transactions are GP-led?",
+    "gold_chunk_ids": [
+      "continuation_vehicle_report.pdf_chunk_0"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "What was NVIDIA's revenue for fiscal year 2026?",
+    "gold_chunk_ids": [
+      "nvidia_10k.pdf_chunk_0"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "Who is the Chief Executive Officer of NVIDIA Corporation?",
+    "gold_chunk_ids": [
+      "nvidia_10k.pdf_chunk_0"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "What was Salesforce's total revenue for fiscal year 2026?",
+    "gold_chunk_ids": [
+      "salesforce_10k.pdf_chunk_0"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "What is KKR's investment philosophy regarding capital preservation?",
+    "gold_chunk_ids": [
+      "kkr_letter.pdf_chunk_0"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "What was the Net Asset Value (NAV) of Northriver's secondary portfolio in Q1 2026?",
+    "gold_chunk_ids": [
+      "northriver_q1_2026.txt_chunk_0"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "What themes did Stephen Schwarzman highlight in his annual letter to investors?",
+    "gold_chunk_ids": [
+      "blackstone_letter.pdf_chunk_0"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "What was the transaction value of the secondary sale of Northriver LP interests?",
+    "gold_chunk_ids": [
+      "secondary_transaction_summary.txt_chunk_0"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "What is the purpose of the Investment Committee Memo sample?",
+    "gold_chunk_ids": [
+      "ic_memo_sample.txt_chunk_0"
+    ],
+    "query_type": "single-hop"
+  },
+  {
+    "query": "How do Blackstone and Apollo each characterize secondaries activity in their most recent results?",
+    "gold_chunk_ids": [
+      "blackstone_earnings.txt_chunk_0",
+      "apollo_earnings.txt_chunk_0"
+    ],
+    "query_type": "multi-hop"
+  },
+  {
+    "query": "What was the total AUM of Blackstone compared to Apollo in their Q1 2026 results?",
+    "gold_chunk_ids": [
+      "blackstone_earnings.txt_chunk_0",
+      "apollo_earnings.txt_chunk_0"
+    ],
+    "query_type": "multi-hop"
+  },
+  {
+    "query": "Compare the year-over-year Fee-Related Earnings (FRE) growth of Apollo and Blackstone in Q1 2026.",
+    "gold_chunk_ids": [
+      "apollo_earnings.txt_chunk_0",
+      "blackstone_earnings.txt_chunk_0"
+    ],
+    "query_type": "multi-hop"
+  },
+  {
+    "query": "How does the H1 2025 secondary volume in the Jefferies report compare to the 2026 expected secondary volume in the continuation vehicle report?",
+    "gold_chunk_ids": [
+      "Jefferies-Global-Secondary-Market-Review-July-2025.pdf_chunk_0",
+      "continuation_vehicle_report.pdf_chunk_0"
+    ],
+    "query_type": "multi-hop"
+  },
+  {
+    "query": "What was the pricing of venture secondaries in H1 2025, and how does Northriver's Q1 2026 secondary portfolio NAV compare?",
+    "gold_chunk_ids": [
+      "Jefferies-Global-Secondary-Market-Review-July-2025.pdf_chunk_20",
+      "northriver_q1_2026.txt_chunk_0"
+    ],
+    "query_type": "multi-hop"
+  },
+  {
+    "query": "Which segments are Blackstone and Apollo each focusing on to drive growth (e.g. wealth, daily pricing, or logistics)?",
+    "gold_chunk_ids": [
+      "blackstone_earnings.txt_chunk_0",
+      "apollo_earnings.txt_chunk_0"
+    ],
+    "query_type": "multi-hop"
+  },
+  {
+    "query": "What is the relation between the Northriver secondary transaction value and its Q1 2026 NAV?",
+    "gold_chunk_ids": [
+      "secondary_transaction_summary.txt_chunk_0",
+      "northriver_q1_2026.txt_chunk_0"
+    ],
+    "query_type": "multi-hop"
+  },
+  {
+    "query": "How does NVIDIA's fiscal 2026 revenue compare with Salesforce's fiscal 2026 revenue?",
+    "gold_chunk_ids": [
+      "nvidia_10k.pdf_chunk_0",
+      "salesforce_10k.pdf_chunk_0"
+    ],
+    "query_type": "multi-hop"
+  },
+  {
+    "query": "What were the fundraising numbers for Apollo's global wealth and Blackstone's total inflows in Q1 2026?",
+    "gold_chunk_ids": [
+      "apollo_earnings.txt_chunk_0",
+      "blackstone_earnings.txt_chunk_0"
+    ],
+    "query_type": "multi-hop"
+  },
+  {
+    "query": "How do KKR's letter and Blackstone's letter describe their respective risk management policies?",
+    "gold_chunk_ids": [
+      "kkr_letter.pdf_chunk_0",
+      "blackstone_letter.pdf_chunk_0"
+    ],
+    "query_type": "multi-hop"
+  },
+  {
+    "query": "Compare the private equity performance IRR of Apollo's Fund 10 and Blackstone's private equity appreciation in Q1 2026.",
+    "gold_chunk_ids": [
+      "apollo_earnings.txt_chunk_0",
+      "blackstone_earnings.txt_chunk_0"
+    ],
+    "query_type": "multi-hop"
+  },
+  {
+    "query": "What was the total secondary market volume in H1 2025, and what was the LP share of that volume?",
+    "gold_chunk_ids": [
+      "Jefferies-Global-Secondary-Market-Review-July-2025.pdf_chunk_0",
+      "Jefferies-Global-Secondary-Market-Review-July-2025.pdf_chunk_7"
+    ],
+    "query_type": "multi-hop"
+  },
+  {
+    "query": "How do the Jefferies report and the continuation vehicle report characterize the demand for GP-led transactions?",
+    "gold_chunk_ids": [
+      "Jefferies-Global-Secondary-Market-Review-July-2025.pdf_chunk_6",
+      "continuation_vehicle_report.pdf_chunk_0"
+    ],
+    "query_type": "multi-hop"
+  },
+  {
+    "query": "Who are the CEOs of NVIDIA and Blackstone as listed in their 10-K and earnings releases?",
+    "gold_chunk_ids": [
+      "nvidia_10k.pdf_chunk_0",
+      "blackstone_earnings.txt_chunk_0"
+    ],
+    "query_type": "multi-hop"
+  },
+  {
+    "query": "What are the key highlights of the sample investment memo and the Northriver transaction summary?",
+    "gold_chunk_ids": [
+      "ic_memo_sample.txt_chunk_0",
+      "secondary_transaction_summary.txt_chunk_0"
+    ],
+    "query_type": "multi-hop"
+  },
+  {
+    "query": "What was the secondary LP volume in H1 2025 compared to GP volume in the same period?",
+    "gold_chunk_ids": [
+      "Jefferies-Global-Secondary-Market-Review-July-2025.pdf_chunk_7",
+      "Jefferies-Global-Secondary-Market-Review-July-2025.pdf_chunk_7"
+    ],
+    "query_type": "multi-hop"
+  },
+  {
+    "query": "How do Blackstone and Apollo characterize their role as providers of liquidity in Q1 2026?",
+    "gold_chunk_ids": [
+      "blackstone_earnings.txt_chunk_0",
+      "apollo_earnings.txt_chunk_0"
+    ],
+    "query_type": "multi-hop"
+  },
+  {
+    "query": "What was the average size of continuation vehicles in H1 2025, and what is the market size projection for 2026?",
+    "gold_chunk_ids": [
+      "Jefferies-Global-Secondary-Market-Review-July-2025.pdf_chunk_2",
+      "continuation_vehicle_report.pdf_chunk_0"
+    ],
+    "query_type": "multi-hop"
+  },
+  {
+    "query": "How does Salesforce's revenue growth compare to the growth of Apollo's asset management AUM?",
+    "gold_chunk_ids": [
+      "salesforce_10k.pdf_chunk_0",
+      "apollo_earnings.txt_chunk_0"
+    ],
+    "query_type": "multi-hop"
+  },
+  {
+    "query": "What was Apollo's origination volume and Blackstone's total inflows in their Q1 2026 results?",
+    "gold_chunk_ids": [
+      "apollo_earnings.txt_chunk_0",
+      "blackstone_earnings.txt_chunk_0"
+    ],
+    "query_type": "multi-hop"
+  }
+]
