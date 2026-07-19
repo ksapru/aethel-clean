@@ -112,22 +112,23 @@ class _NERv3Retriever:
         self._key_to_idx = key_to_idx
 
         # ── Phase 2: Substring adjacency ─────────────────────────────
+        # Algorithm: entity-outer loop with pure substring match (ekey in cl).
+        # This is semantically identical to the original verified run
+        # (task-367.log). The dense matrix was the 20-minute bottleneck —
+        # with sparse lil_matrix the same loop runs in ~10-15s.
         t1 = time.time()
         print(f"    [NERv3] Phase 2: Building {np_}×{ne} adjacency "
-              f"via substring matching...")
-        
+              f"(substring match, sparse storage)...")
+
         total = np_ + ne
-        # Use sparse lil_matrix for construction (O(1) element assignment,
-        # no 400MB dense allocation). Convert to CSR for fast row-ops.
         adj = lil_matrix((total, total), dtype=np.float32)
 
         # Pre-lowercase all passage content
         contents_lower = [d.page_content.lower() for d in docs]
-
-        # For each entity, find all passages containing it
         entity_keys = list(key_to_idx.keys())  # already lowercase
+
         for ei, ekey in enumerate(entity_keys):
-            if ei % 500 == 0 and ei > 0:
+            if ei % 1000 == 0 and ei > 0:
                 print(f"    [NERv3]   edge scan: {ei}/{ne} entities...")
             eidx = key_to_idx[ekey]
             for pi, cl in enumerate(contents_lower):
