@@ -10,7 +10,7 @@ Methods evaluated:
   - tfidf:          TF-IDF cosine similarity (sparse lexical baseline)
   - dense:          Bi-encoder embeddings via all-MiniLM-L6-v2 (dense baseline)
   - graph:          Bipartite PPR with exact entity matching
-  - graph_regex:    Bipartite PPR with coreference-aware alias expansion (Aethel BCT)
+  - graph_aes:      Bipartite PPR with alias-expanded seeding (AES)
 """
 
 import warnings
@@ -211,10 +211,10 @@ class _GraphRetriever:
     Builds a bipartite entity-passage graph on the fly for each question's
     context paragraphs and runs Personalized PageRank to rank passages.
     
-    When use_regex=True, applies coreference-aware alias expansion: entity
+    When use_aes=True, applies alias-expanded seeding: entity
     mentions in the query are expanded via substring matching and common
     abbreviation patterns, boosting seed coverage for the PPR teleport vector.
-    This is the core BCT (Bipartite Coreference Teleportation) contribution.
+    This is the alias-expanded seeding (AES) layer.
     """
 
     def __init__(self, docs: List[SimpleDocument]):
@@ -267,7 +267,8 @@ class _GraphRetriever:
         self,
         q: str,
         k: int = 5,
-        use_regex: bool = False,
+        use_aes: bool = False,
+        use_regex: bool = None,   # deprecated alias for use_aes
         alias: bool = None,
         substring: bool = None,
         weighted: bool = None,
@@ -276,7 +277,7 @@ class _GraphRetriever:
     ):
         """Rank passages by Personalized PageRank over the bipartite graph.
 
-        BCT decomposes into three independent mechanisms plus one historical
+        AES decomposes into three independent mechanisms plus one historical
         asymmetry, each exposed as its own flag so they can be ablated:
 
           alias          — expand seeds via the surname/abbreviation alias map
@@ -287,25 +288,28 @@ class _GraphRetriever:
                            word-overlap seeding rather than returning the first
                            k passages in document order
 
-        `use_regex` is retained as the historical entry point. When the four
+        `use_aes` is the historical entry point (formerly `use_regex`, still
+        accepted as an alias). When the four
         flags are left unset they are derived from it so that the two shipped
         configurations reproduce exactly:
 
-          use_regex=False -> alias=F, substring=F, weighted=F, exact_fallback=T
-          use_regex=True  -> alias=T, substring=T, weighted=T, exact_fallback=F
+          use_aes=False -> alias=F, substring=F, weighted=F, exact_fallback=T
+          use_aes=True  -> alias=T, substring=T, weighted=T, exact_fallback=F
 
-        Note the asymmetry in the last column: the original BCT path never had
+        Note the asymmetry in the last column: the original AES path never had
         the no-seed fallback that the exact path had. That difference was
         incidental rather than designed, so it is ablated separately.
         """
+        if use_regex is not None:
+            use_aes = use_regex   # accept the pre-rename keyword
         if alias is None:
-            alias = use_regex
+            alias = use_aes
         if substring is None:
-            substring = use_regex
+            substring = use_aes
         if weighted is None:
-            weighted = use_regex
+            weighted = use_aes
         if exact_fallback is None:
-            exact_fallback = not use_regex
+            exact_fallback = not use_aes
 
         diag = {'n_seeds': 0, 'zero_seed': False, 'fallback_used': False}
 
@@ -468,18 +472,18 @@ def _bootstrap_rto_diff(
 # ---------------------------------------------------------------------------
 # Method ordering and display labels
 # ---------------------------------------------------------------------------
-BASELINE_METHODS = ['tfidf'] + DENSE_KEYS + ['graph', 'graph_regex']
-ABLATION_METHODS = ['bct_none', 'bct_alias', 'bct_alias_sub', 'bct_full']
+BASELINE_METHODS = ['tfidf'] + DENSE_KEYS + ['graph', 'graph_aes']
+ABLATION_METHODS = ['aes_none', 'aes_alias', 'aes_alias_sub', 'aes_full']
 ALL_METHODS = BASELINE_METHODS + ABLATION_METHODS
 
 METHOD_LABELS = {
     'tfidf':         'Sparse (TF-IDF)',
     'graph':         'Graph (PPR)',
-    'graph_regex':   'Aethel (PPR+BCT)',
-    'bct_none':      'BCT-0: exact only',
-    'bct_alias':     'BCT-1: +alias',
-    'bct_alias_sub': 'BCT-2: +substring',
-    'bct_full':      'BCT-3: +weighted',
+    'graph_aes':   'Graph (PPR + AES)',
+    'aes_none':      'AES-0: exact only',
+    'aes_alias':     'AES-1: +alias',
+    'aes_alias_sub': 'AES-2: +substring',
+    'aes_full':      'AES-3: +weighted',
 }
 METHOD_LABELS.update({k: v['label'] for k, v in DENSE_MODELS.items()})
 
@@ -511,21 +515,21 @@ def _save_cache(data: dict):
 
 
 # ---------------------------------------------------------------------------
-# Graph method registry — the BCT ablation ladder
+# Graph method registry — the AES ablation ladder
 #
-# `graph` and `graph_regex` are the two historically shipped configurations and
-# are preserved bit-for-bit. The `bct_*` rungs add exactly one mechanism each,
+# `graph` and `graph_aes` are the two historically shipped configurations and
+# are preserved bit-for-bit. The `aes_*` rungs add exactly one mechanism each,
 # holding exact_fallback=True throughout so that the ladder isolates the three
-# designed BCT mechanisms. Comparing `bct_full` against `graph_regex` then
+# designed AES mechanisms. Comparing `aes_full` against `graph_aes` then
 # isolates the incidental no-seed-fallback asymmetry on its own.
 # ---------------------------------------------------------------------------
 GRAPH_METHODS: Dict[str, Dict[str, bool]] = {
-    'graph':         dict(use_regex=False),
-    'graph_regex':   dict(use_regex=True),
-    'bct_none':      dict(alias=False, substring=False, weighted=False, exact_fallback=True),
-    'bct_alias':     dict(alias=True,  substring=False, weighted=False, exact_fallback=True),
-    'bct_alias_sub': dict(alias=True,  substring=True,  weighted=False, exact_fallback=True),
-    'bct_full':      dict(alias=True,  substring=True,  weighted=True,  exact_fallback=True),
+    'graph':         dict(use_aes=False),
+    'graph_aes':     dict(use_aes=True),
+    'aes_none':      dict(alias=False, substring=False, weighted=False, exact_fallback=True),
+    'aes_alias':     dict(alias=True,  substring=False, weighted=False, exact_fallback=True),
+    'aes_alias_sub': dict(alias=True,  substring=True,  weighted=False, exact_fallback=True),
+    'aes_full':      dict(alias=True,  substring=True,  weighted=True,  exact_fallback=True),
 }
 
 
@@ -643,7 +647,7 @@ def _eval_pass(items, build_docs_fn, methods_config, methods):
 def evaluate_2wiki(n_questions: int = 200, seed: int = 42) -> Dict[str, Any]:
     """Run real retrieval on 2WikiMultiHopQA validation set."""
     cache = _load_cache()
-    # v4: add BGE/E5/GTE dense baselines and the BCT ablation ladder
+    # v4: add BGE/E5/GTE dense baselines and the AES ablation ladder
     cache_key = f"2wiki_v4_n{n_questions}_s{seed}"
     if cache_key in cache:
         print(f"  [CACHE HIT] Loading 2WikiMultiHopQA results from eval_cache.json")
@@ -720,7 +724,7 @@ def evaluate_musique(n_questions: int = 200, seed: int = 42) -> Dict[str, Any]:
     Cache key v3: includes per-question F1 lists and bootstrap CI.
     """
     cache = _load_cache()
-    # v10: add BGE/E5/GTE dense baselines and the BCT ablation ladder
+    # v10: add BGE/E5/GTE dense baselines and the AES ablation ladder
     cache_key = f"musique_v10_n{n_questions}_s{seed}"
     if cache_key in cache:
         print(f"  [CACHE HIT] Loading MuSiQue results from eval_cache.json")
@@ -772,15 +776,15 @@ def evaluate_musique(n_questions: int = 200, seed: int = 42) -> Dict[str, Any]:
         _attach_seed_diagnostics(results[m], raw[m])
     results['n_questions'] = n
 
-    # Paired bootstrap: Aethel (PPR+BCT) vs Bipartite PPR on per-question RTO
+    # Paired bootstrap: Aethel (PPR+AES) vs Bipartite PPR on per-question RTO
     print(f"  Running paired bootstrap (B=1000) on MuSiQue RTO...")
     bootstrap = _bootstrap_rto_diff(
         rto_a=results['graph']['rto_list'],        # 0-100 scale
-        rto_b=results['graph_regex']['rto_list'],  # 0-100 scale
+        rto_b=results['graph_aes']['rto_list'],  # 0-100 scale
         B=1000,
         seed=42,
     )
-    results['bootstrap_graph_vs_regex'] = bootstrap
+    results['bootstrap_graph_vs_aes'] = bootstrap
     print(f"  Bootstrap result: delta={bootstrap['observed']:+.2f} RTO pts, "
           f"95% CI=[{bootstrap['ci_lo']:.2f}, {bootstrap['ci_hi']:.2f}], "
           f"p={bootstrap['p_value']:.4f}")
@@ -829,7 +833,7 @@ def run_public_benchmarks(n_questions: int = 200, seed: int = 42) -> Dict[str, A
     def _diag_table(title, res):
         print(f"\n  {title}")
         print(f"  {'Config':<24} {'mean seeds':>12} {'zero-seed q':>13} {'fallback q':>12}")
-        for m in ABLATION_METHODS + ['graph_regex']:
+        for m in ABLATION_METHODS + ['graph_aes']:
             r = res[m]
             if 'mean_seeds' not in r:
                 continue
@@ -844,10 +848,10 @@ def run_public_benchmarks(n_questions: int = 200, seed: int = 42) -> Dict[str, A
         musique_results, BASELINE_METHODS, show_rto=True)
 
     print("\n" + "=" * 78)
-    print("  BCT ABLATION (each rung adds exactly one mechanism)")
+    print("  AES ABLATION (each rung adds exactly one mechanism)")
     print("=" * 78)
-    _table("2WikiMultiHopQA:", wiki_results, ABLATION_METHODS + ['graph_regex'], show_rto=False)
-    _table("MuSiQue:", musique_results, ABLATION_METHODS + ['graph_regex'], show_rto=True)
+    _table("2WikiMultiHopQA:", wiki_results, ABLATION_METHODS + ['graph_aes'], show_rto=False)
+    _table("MuSiQue:", musique_results, ABLATION_METHODS + ['graph_aes'], show_rto=True)
 
     _diag_table("2Wiki seeding diagnostics:", wiki_results)
     _diag_table("MuSiQue seeding diagnostics:", musique_results)

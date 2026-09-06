@@ -174,7 +174,7 @@ class _NERv3Retriever:
               f"max={ent_degrees.max():.0f}")
         print(f"    [NERv3] Ready. Total init: {time.time()-t0:.1f}s")
 
-    def query(self, q: str, k: int = 5, use_regex: bool = True) -> List[int]:
+    def query(self, q: str, k: int = 5, use_aes: bool = True) -> List[int]:
         if self.ne == 0 or self.total == 0:
             return list(range(min(k, len(self.docs))))
 
@@ -350,7 +350,7 @@ def main():
                 # Dense rankings were computed up-front, one encoder at a time.
                 idxs = cfg["precomputed"][qtxt]
             elif cfg["graph"]:
-                idxs = cfg["ret"].query(qtxt, k=pool_k, use_regex=True)
+                idxs = cfg["ret"].query(qtxt, k=pool_k, use_aes=True)
             else:
                 idxs = cfg["ret"].query(qtxt, k=pool_k)
 
