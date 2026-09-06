@@ -82,31 +82,122 @@ class _SparseRetriever:
 
 
 # ---------------------------------------------------------------------------
-# Dense Bi-Encoder Retriever (semantic baseline)
+# Dense Bi-Encoder Retrievers (semantic baselines)
+#
+# Registry of bi-encoders. `all-MiniLM-L6-v2` (22M params, 2021) is retained as
+# a legacy reference point; the three base-size encoders (109M params) are the
+# contemporary baselines.
+#
+# The query/document prefixes are NOT cosmetic. BGE and E5 are trained with
+# asymmetric instruction prefixes, and omitting them materially understates
+# those models. GTE and MiniLM are trained without prefixes.
 # ---------------------------------------------------------------------------
-_DENSE_MODEL = None  # lazy-loaded singleton
+DENSE_MODELS: Dict[str, Dict[str, str]] = {
+    'dense': {
+        'model_name': 'all-MiniLM-L6-v2',
+        'label':      'Dense (MiniLM)',
+        'params':     '22M',
+        'query_prefix': '',
+        'doc_prefix':   '',
+    },
+    'dense_bge': {
+        'model_name': 'BAAI/bge-base-en-v1.5',
+        'label':      'Dense (BGE-base)',
+        'params':     '109M',
+        'query_prefix': 'Represent this sentence for searching relevant passages: ',
+        'doc_prefix':   '',
+    },
+    'dense_e5': {
+        'model_name': 'intfloat/e5-base-v2',
+        'label':      'Dense (E5-base)',
+        'params':     '109M',
+        'query_prefix': 'query: ',
+        'doc_prefix':   'passage: ',
+    },
+    'dense_gte': {
+        'model_name': 'thenlper/gte-base',
+        'label':      'Dense (GTE-base)',
+        'params':     '109M',
+        'query_prefix': '',
+        'doc_prefix':   '',
+    },
+}
 
-def _get_dense_model():
-    global _DENSE_MODEL
-    if _DENSE_MODEL is None:
+DENSE_KEYS = list(DENSE_MODELS.keys())
+
+_DENSE_MODEL_CACHE: Dict[str, Any] = {}  # model_key -> SentenceTransformer
+
+
+def _get_dense_model(model_key: str = 'dense'):
+    """Lazy-load and cache a SentenceTransformer by registry key."""
+    if model_key not in DENSE_MODELS:
+        raise KeyError(
+            f"Unknown dense model key {model_key!r}. "
+            f"Known keys: {sorted(DENSE_MODELS)}"
+        )
+    if model_key not in _DENSE_MODEL_CACHE:
         from sentence_transformers import SentenceTransformer
-        _DENSE_MODEL = SentenceTransformer('all-MiniLM-L6-v2')
-    return _DENSE_MODEL
+        # AETHEL_DENSE_DEVICE lets a memory-constrained host force 'cpu'.
+        # On small unified-memory Macs, MPS allocations compete with system
+        # RAM and can push the process into swap thrash.
+        device = os.environ.get('AETHEL_DENSE_DEVICE') or None
+        _DENSE_MODEL_CACHE[model_key] = SentenceTransformer(
+            DENSE_MODELS[model_key]['model_name'], device=device
+        )
+    return _DENSE_MODEL_CACHE[model_key]
+
+
+# Encoding batch size. Lower it via AETHEL_DENSE_BATCH on low-RAM machines:
+# activation memory scales with batch size and dominates weight memory.
+DENSE_BATCH_SIZE = int(os.environ.get('AETHEL_DENSE_BATCH', '32'))
+
+
+def _release_dense_model(model_key: str) -> None:
+    """Drop a cached encoder and reclaim its memory.
+
+    Holding all four encoders resident at once costs well over a gigabyte,
+    which is enough to push a memory-constrained machine into swap thrash.
+    The benchmark evaluates one encoder at a time and releases it here.
+    """
+    _DENSE_MODEL_CACHE.pop(model_key, None)
+    import gc
+    gc.collect()
+    try:
+        import torch
+        if torch.backends.mps.is_available():
+            torch.mps.empty_cache()
+        elif torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        pass
+
 
 class _DenseRetriever:
-    """Dense bi-encoder retriever using all-MiniLM-L6-v2 embeddings."""
-    def __init__(self, docs: List[SimpleDocument]):
+    """Dense bi-encoder retriever.
+
+    Defaults to `all-MiniLM-L6-v2` so existing callers (e.g. evaluate_aethel.py)
+    keep their previous behaviour unchanged.
+    """
+
+    def __init__(self, docs: List[SimpleDocument], model_key: str = 'dense'):
         self.docs = docs
-        model = _get_dense_model()
+        self.model_key = model_key
+        spec = DENSE_MODELS[model_key]
+        self._query_prefix = spec['query_prefix']
+        model = _get_dense_model(model_key)
+        doc_prefix = spec['doc_prefix']
         self.embeddings = model.encode(
-            [d.page_content for d in docs],
+            [doc_prefix + d.page_content for d in docs],
             normalize_embeddings=True,
-            show_progress_bar=False
+            show_progress_bar=False,
+            batch_size=DENSE_BATCH_SIZE,
         )
 
     def query(self, q: str, k: int = 5) -> List[int]:
-        model = _get_dense_model()
-        q_emb = model.encode([q], normalize_embeddings=True)[0]
+        model = _get_dense_model(self.model_key)
+        q_emb = model.encode(
+            [self._query_prefix + q], normalize_embeddings=True
+        )[0]
         scores = self.embeddings @ q_emb
         ranked = np.argsort(scores)[::-1]
         return [int(idx) for idx in ranked[:k]]
@@ -172,21 +263,71 @@ class _GraphRetriever:
             if len(words) > 1 and len(words[-1]) >= 4:
                 self._alias_map[words[-1].lower()] = ei
 
-    def query(self, q: str, k: int = 5, use_regex: bool = False) -> List[int]:
+    def query(
+        self,
+        q: str,
+        k: int = 5,
+        use_regex: bool = False,
+        alias: bool = None,
+        substring: bool = None,
+        weighted: bool = None,
+        exact_fallback: bool = None,
+        return_diagnostics: bool = False,
+    ):
+        """Rank passages by Personalized PageRank over the bipartite graph.
+
+        BCT decomposes into three independent mechanisms plus one historical
+        asymmetry, each exposed as its own flag so they can be ablated:
+
+          alias          — expand seeds via the surname/abbreviation alias map
+          substring      — seed on strong substring overlap when <2 seeds found
+          weighted       — weight the teleport vector by query-word overlap
+                           instead of distributing mass uniformly
+          exact_fallback — when NO seeds are found, fall back to loose (>=3 char)
+                           word-overlap seeding rather than returning the first
+                           k passages in document order
+
+        `use_regex` is retained as the historical entry point. When the four
+        flags are left unset they are derived from it so that the two shipped
+        configurations reproduce exactly:
+
+          use_regex=False -> alias=F, substring=F, weighted=F, exact_fallback=T
+          use_regex=True  -> alias=T, substring=T, weighted=T, exact_fallback=F
+
+        Note the asymmetry in the last column: the original BCT path never had
+        the no-seed fallback that the exact path had. That difference was
+        incidental rather than designed, so it is ablated separately.
+        """
+        if alias is None:
+            alias = use_regex
+        if substring is None:
+            substring = use_regex
+        if weighted is None:
+            weighted = use_regex
+        if exact_fallback is None:
+            exact_fallback = not use_regex
+
+        diag = {'n_seeds': 0, 'zero_seed': False, 'fallback_used': False}
+
+        def _finish(result, seeds_count=0, zero_seed=False, fallback_used=False):
+            diag['n_seeds'] = seeds_count
+            diag['zero_seed'] = zero_seed
+            diag['fallback_used'] = fallback_used
+            return (result, diag) if return_diagnostics else result
+
         if self.ne == 0 or self.total == 0:
-            return list(range(min(k, len(self.docs))))
+            return _finish(list(range(min(k, len(self.docs)))), 0, True, False)
 
         q_lower = q.lower()
         seeds = []
 
-        if use_regex:
-            # BCT: Coreference-aware alias expansion
-            # First pass: exact entity matches
-            for ei, ent in enumerate(self.entities):
-                if ent.lower() in q_lower:
-                    seeds.append(ei)
+        # Pass 1 (always): exact entity surface-form match
+        for ei, ent in enumerate(self.entities):
+            if ent.lower() in q_lower:
+                seeds.append(ei)
 
-            # Second pass: alias/abbreviation matching via the alias map
+        # Pass 2 (alias): alias/abbreviation matching via the alias map
+        if alias:
             q_words = re.findall(r'[a-z]{3,}', q_lower)
             for w in q_words:
                 if w in self._alias_map:
@@ -194,34 +335,33 @@ class _GraphRetriever:
                     if ei not in seeds:
                         seeds.append(ei)
 
-            # Third pass: strong substring overlap (≥2 matching words of length ≥4)
-            if len(seeds) < 2:
-                for ei, ent in enumerate(self.entities):
-                    ent_words = set(re.findall(r'[a-z]{4,}', ent.lower()))
-                    q_word_set = set(re.findall(r'[a-z]{4,}', q_lower))
-                    overlap = ent_words & q_word_set
-                    if len(overlap) >= 2 and ei not in seeds:
-                        seeds.append(ei)
-        else:
-            # Standard exact matching (exact bipartite PPR graph baseline)
+        # Pass 3 (substring): strong overlap (>=2 matching words of length >=4)
+        if substring and len(seeds) < 2:
+            q_word_set = set(re.findall(r'[a-z]{4,}', q_lower))
             for ei, ent in enumerate(self.entities):
-                if ent.lower() in q_lower:
+                ent_words = set(re.findall(r'[a-z]{4,}', ent.lower()))
+                if len(ent_words & q_word_set) >= 2 and ei not in seeds:
                     seeds.append(ei)
 
-            if not seeds:
-                q_words = set(re.findall(r'[a-z]{3,}', q_lower))
-                for ei, ent in enumerate(self.entities):
-                    ent_words = set(re.findall(r'[a-z]{3,}', ent.lower()))
-                    if q_words & ent_words:
-                        seeds.append(ei)
+        # Pass 4 (exact_fallback): loose word-overlap rescue when nothing hit
+        fallback_used = False
+        if exact_fallback and not seeds:
+            q_words = set(re.findall(r'[a-z]{3,}', q_lower))
+            for ei, ent in enumerate(self.entities):
+                ent_words = set(re.findall(r'[a-z]{3,}', ent.lower()))
+                if q_words & ent_words:
+                    seeds.append(ei)
+            fallback_used = bool(seeds)
 
         if not seeds:
-            return list(range(min(k, len(self.docs))))
+            return _finish(
+                list(range(min(k, len(self.docs)))), 0, True, fallback_used
+            )
 
-        # Weighted teleport vector: in regex mode, prioritize entities
-        # that have more alias matches (stronger coreference signal)
+        # Weighted teleport vector: prioritize entities with more query-word
+        # overlap (stronger coreference signal)
         u = np.zeros(self.total)
-        if use_regex and len(seeds) > 1:
+        if weighted and len(seeds) > 1:
             # Weight seeds by alias match strength
             weights = {}
             q_words = set(re.findall(r'[a-z]{3,}', q_lower))
@@ -254,7 +394,12 @@ class _GraphRetriever:
 
         passage_scores = v[:self.np_]
         ranked = np.argsort(passage_scores)[::-1]
-        return [int(idx) for idx in ranked[:k]]
+        return _finish(
+            [int(idx) for idx in ranked[:k]],
+            seeds_count=len(seeds),
+            zero_seed=False,
+            fallback_used=fallback_used,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -320,6 +465,35 @@ def _bootstrap_rto_diff(
     }
 
 
+# ---------------------------------------------------------------------------
+# Method ordering and display labels
+# ---------------------------------------------------------------------------
+BASELINE_METHODS = ['tfidf'] + DENSE_KEYS + ['graph', 'graph_regex']
+ABLATION_METHODS = ['bct_none', 'bct_alias', 'bct_alias_sub', 'bct_full']
+ALL_METHODS = BASELINE_METHODS + ABLATION_METHODS
+
+METHOD_LABELS = {
+    'tfidf':         'Sparse (TF-IDF)',
+    'graph':         'Graph (PPR)',
+    'graph_regex':   'Aethel (PPR+BCT)',
+    'bct_none':      'BCT-0: exact only',
+    'bct_alias':     'BCT-1: +alias',
+    'bct_alias_sub': 'BCT-2: +substring',
+    'bct_full':      'BCT-3: +weighted',
+}
+METHOD_LABELS.update({k: v['label'] for k, v in DENSE_MODELS.items()})
+
+
+def _attach_seed_diagnostics(out: dict, raw_m: dict) -> None:
+    """Copy graph seeding diagnostics onto a results dict, if any were recorded."""
+    gq = raw_m.get('graph_questions', 0)
+    if not gq:
+        return
+    out['mean_seeds'] = round(raw_m['seed_sum'] / gq, 2)
+    out['zero_seed_questions'] = raw_m['zero_seed']
+    out['fallback_questions'] = raw_m['fallback_used']
+
+
 CACHE_PATH = os.path.join(os.path.dirname(__file__), '..', 'eval_cache.json')
 
 
@@ -336,17 +510,70 @@ def _save_cache(data: dict):
         json.dump(data, f, indent=2)
 
 
+# ---------------------------------------------------------------------------
+# Graph method registry — the BCT ablation ladder
+#
+# `graph` and `graph_regex` are the two historically shipped configurations and
+# are preserved bit-for-bit. The `bct_*` rungs add exactly one mechanism each,
+# holding exact_fallback=True throughout so that the ladder isolates the three
+# designed BCT mechanisms. Comparing `bct_full` against `graph_regex` then
+# isolates the incidental no-seed-fallback asymmetry on its own.
+# ---------------------------------------------------------------------------
+GRAPH_METHODS: Dict[str, Dict[str, bool]] = {
+    'graph':         dict(use_regex=False),
+    'graph_regex':   dict(use_regex=True),
+    'bct_none':      dict(alias=False, substring=False, weighted=False, exact_fallback=True),
+    'bct_alias':     dict(alias=True,  substring=False, weighted=False, exact_fallback=True),
+    'bct_alias_sub': dict(alias=True,  substring=True,  weighted=False, exact_fallback=True),
+    'bct_full':      dict(alias=True,  substring=True,  weighted=True,  exact_fallback=True),
+}
+
+
 def _run_eval_loop(items, build_docs_fn, methods_config, n_questions):
     """
     Generic evaluation loop shared by 2Wiki and MuSiQue evaluators.
 
     build_docs_fn(item) -> (docs: List[SimpleDocument], gold_indices: Set[int], answer: str|None)
     Returns per-method accumulators including a per-question rto_list for bootstrapping.
+
+    Evaluation is split into passes so that only ONE dense encoder is resident
+    at a time: the lexical/graph methods share a pass (they can reuse the same
+    per-question sparse and graph indices), then each encoder gets its own pass
+    and is released afterwards. Holding all four encoders simultaneously costs
+    over a gigabyte and can push a constrained machine into swap thrash.
     """
     methods = {}
     for m in methods_config:
-        methods[m] = {'hr1': 0, 'hr3': 0, 'hr5': 0, 'mrr': 0.0, 'rto_sum': 0.0, 'rto_list': []}
+        methods[m] = {
+            'hr1': 0, 'hr3': 0, 'hr5': 0, 'mrr': 0.0,
+            'rto_sum': 0.0, 'rto_list': [],
+            'seed_sum': 0, 'zero_seed': 0, 'fallback_used': 0, 'graph_questions': 0,
+        }
 
+    lexical_graph = [m for m in methods_config
+                     if m == 'tfidf' or m in GRAPH_METHODS]
+    dense_methods = [m for m in methods_config if m in DENSE_MODELS]
+    other = [m for m in methods_config
+             if m not in lexical_graph and m not in dense_methods]
+
+    passes = []
+    if lexical_graph or other:
+        passes.append(('lexical+graph', lexical_graph + other))
+    for m in dense_methods:
+        passes.append((DENSE_MODELS[m]['label'], [m]))
+
+    for pass_label, pass_methods in passes:
+        print(f"    [pass] {pass_label}: {', '.join(pass_methods)}")
+        _eval_pass(items, build_docs_fn, pass_methods, methods)
+        for m in pass_methods:
+            if m in DENSE_MODELS:
+                _release_dense_model(m)
+
+    return methods
+
+
+def _eval_pass(items, build_docs_fn, methods_config, methods):
+    """Score one group of methods over every question, accumulating into `methods`."""
     for qi, item in enumerate(items):
         if qi % 50 == 0 and qi > 0:
             print(f"    ...processed {qi}/{len(items)} questions")
@@ -357,20 +584,34 @@ def _run_eval_loop(items, build_docs_fn, methods_config, n_questions):
         if not gold_indices or not docs:
             continue
 
-        sparse = _SparseRetriever(docs)
-        dense = _DenseRetriever(docs)
-        graph = _GraphRetriever(docs)
+        sparse = None
+        graph = None
+        dense_by_key = {}
 
         for method_name in methods_config:
             if method_name == 'tfidf':
+                if sparse is None:
+                    sparse = _SparseRetriever(docs)
                 retrieved = sparse.query(question, k=5)
-            elif method_name == 'dense':
-                retrieved = dense.query(question, k=5)
-            elif method_name == 'graph':
-                retrieved = graph.query(question, k=5, use_regex=False)
-            elif method_name == 'graph_regex':
-                retrieved = graph.query(question, k=5, use_regex=True)
+            elif method_name in DENSE_MODELS:
+                if method_name not in dense_by_key:
+                    dense_by_key[method_name] = _DenseRetriever(docs, model_key=method_name)
+                retrieved = dense_by_key[method_name].query(question, k=5)
+            elif method_name in GRAPH_METHODS:
+                if graph is None:
+                    graph = _GraphRetriever(docs)
+                retrieved, diag = graph.query(
+                    question, k=5, return_diagnostics=True,
+                    **GRAPH_METHODS[method_name]
+                )
+                acc = methods[method_name]
+                acc['seed_sum'] += diag['n_seeds']
+                acc['zero_seed'] += int(diag['zero_seed'])
+                acc['fallback_used'] += int(diag['fallback_used'])
+                acc['graph_questions'] += 1
             else:
+                if sparse is None:
+                    sparse = _SparseRetriever(docs)
                 retrieved = sparse.query(question, k=5)
 
             # HR@k and MRR
@@ -395,8 +636,6 @@ def _run_eval_loop(items, build_docs_fn, methods_config, n_questions):
                 methods[method_name]['rto_sum'] += rto
                 methods[method_name]['rto_list'].append(rto)   # keep per-question score
 
-    return methods
-
 
 # ---------------------------------------------------------------------------
 # 2WikiMultiHopQA
@@ -404,7 +643,8 @@ def _run_eval_loop(items, build_docs_fn, methods_config, n_questions):
 def evaluate_2wiki(n_questions: int = 200, seed: int = 42) -> Dict[str, Any]:
     """Run real retrieval on 2WikiMultiHopQA validation set."""
     cache = _load_cache()
-    cache_key = f"2wiki_v3_n{n_questions}_s{seed}"   # v3: add dense bi-encoder baseline
+    # v4: add BGE/E5/GTE dense baselines and the BCT ablation ladder
+    cache_key = f"2wiki_v4_n{n_questions}_s{seed}"
     if cache_key in cache:
         print(f"  [CACHE HIT] Loading 2WikiMultiHopQA results from eval_cache.json")
         return cache[cache_key]
@@ -451,7 +691,7 @@ def evaluate_2wiki(n_questions: int = 200, seed: int = 42) -> Dict[str, Any]:
 
         return docs, gold, None  # No answer F1 for 2Wiki (we use Hit Rate)
 
-    methods_cfg = ['tfidf', 'dense', 'graph', 'graph_regex']
+    methods_cfg = ALL_METHODS
     raw = _run_eval_loop(items, build_docs, methods_cfg, n_questions)
 
     n = len(items)
@@ -463,6 +703,7 @@ def evaluate_2wiki(n_questions: int = 200, seed: int = 42) -> Dict[str, Any]:
             'hr5': round(raw[m]['hr5'] / n, 4),
             'mrr': round(raw[m]['mrr'] / n, 4),
         }
+        _attach_seed_diagnostics(results[m], raw[m])
     results['n_questions'] = n
 
     cache[cache_key] = results
@@ -479,7 +720,8 @@ def evaluate_musique(n_questions: int = 200, seed: int = 42) -> Dict[str, Any]:
     Cache key v3: includes per-question F1 lists and bootstrap CI.
     """
     cache = _load_cache()
-    cache_key = f"musique_v9_n{n_questions}_s{seed}"   # v9: add dense bi-encoder baseline
+    # v10: add BGE/E5/GTE dense baselines and the BCT ablation ladder
+    cache_key = f"musique_v10_n{n_questions}_s{seed}"
     if cache_key in cache:
         print(f"  [CACHE HIT] Loading MuSiQue results from eval_cache.json")
         return cache[cache_key]
@@ -513,7 +755,7 @@ def evaluate_musique(n_questions: int = 200, seed: int = 42) -> Dict[str, Any]:
                 gold.add(doc_idx)
         return docs, gold, item['answer']
 
-    methods_cfg = ['tfidf', 'dense', 'graph', 'graph_regex']
+    methods_cfg = ALL_METHODS
     raw = _run_eval_loop(items, build_docs, methods_cfg, n_questions)
 
     n = len(items)
@@ -527,6 +769,7 @@ def evaluate_musique(n_questions: int = 200, seed: int = 42) -> Dict[str, Any]:
             'rto':  round(raw[m]['rto_sum'] / n * 100, 2),  # Retrieval Token Overlap (%)
             'rto_list': [round(x * 100, 4) for x in raw[m]['rto_list']],  # 0-100 scale
         }
+        _attach_seed_diagnostics(results[m], raw[m])
     results['n_questions'] = n
 
     # Paired bootstrap: Aethel (PPR+BCT) vs Bipartite PPR on per-question RTO
@@ -569,27 +812,46 @@ def run_public_benchmarks(n_questions: int = 200, seed: int = 42) -> Dict[str, A
 
   
 
-    METHOD_LABELS = {
-        'tfidf': 'Sparse (TF-IDF)',
-        'dense': 'Dense (MiniLM)',
-        'graph': 'Graph (PPR)',
-        'graph_regex': 'Aethel (PPR+BCT)'
-    }
-    method_order = ['tfidf', 'dense', 'graph', 'graph_regex']
+    def _table(title, res, methods, show_rto):
+        print(f"\n  {title}")
+        hdr = f"  {'Method':<24} {'HR@1':>8} {'HR@3':>8} {'HR@5':>8} {'MRR':>8}"
+        if show_rto:
+            hdr += f" {'RTO%':>8}"
+        print(hdr)
+        for m in methods:
+            r = res[m]
+            row = (f"  {METHOD_LABELS[m]:<24} {r['hr1']:>8.4f} {r['hr3']:>8.4f} "
+                   f"{r['hr5']:>8.4f} {r['mrr']:>8.4f}")
+            if show_rto:
+                row += f" {r['rto']:>8.2f}"
+            print(row)
 
-    print(f"\n  2WikiMultiHopQA ({wiki_results['n_questions']} questions, ~10 paragraphs/question):")
-    print(f"  {'Method':<24} {'HR@1':>8} {'HR@3':>8} {'HR@5':>8} {'MRR':>8}")
-    for m in method_order:
-        r = wiki_results[m]
-        print(f"  {METHOD_LABELS[m]:<24} {r['hr1']:>8.4f} {r['hr3']:>8.4f} {r['hr5']:>8.4f} {r['mrr']:>8.4f}")
+    def _diag_table(title, res):
+        print(f"\n  {title}")
+        print(f"  {'Config':<24} {'mean seeds':>12} {'zero-seed q':>13} {'fallback q':>12}")
+        for m in ABLATION_METHODS + ['graph_regex']:
+            r = res[m]
+            if 'mean_seeds' not in r:
+                continue
+            print(f"  {METHOD_LABELS[m]:<24} {r['mean_seeds']:>12.2f} "
+                  f"{r['zero_seed_questions']:>13d} {r['fallback_questions']:>12d}")
 
-    print(f"\n  MuSiQue ({musique_results['n_questions']} questions, ~20 paragraphs/question):")
-    print(f"  {'Method':<24} {'HR@1':>8} {'HR@3':>8} {'HR@5':>8} {'MRR':>8} {'RTO%':>8}")
-    for m in method_order:
-        r = musique_results[m]
-        print(f"  {METHOD_LABELS[m]:<24} {r['hr1']:>8.4f} {r['hr3']:>8.4f} {r['hr5']:>8.4f} {r['mrr']:>8.4f} {r['rto']:>8.2f}")
+    _table(
+        f"2WikiMultiHopQA ({wiki_results['n_questions']} questions, ~10 paragraphs/question):",
+        wiki_results, BASELINE_METHODS, show_rto=False)
+    _table(
+        f"MuSiQue ({musique_results['n_questions']} questions, ~20 paragraphs/question):",
+        musique_results, BASELINE_METHODS, show_rto=True)
 
- 
+    print("\n" + "=" * 78)
+    print("  BCT ABLATION (each rung adds exactly one mechanism)")
+    print("=" * 78)
+    _table("2WikiMultiHopQA:", wiki_results, ABLATION_METHODS + ['graph_regex'], show_rto=False)
+    _table("MuSiQue:", musique_results, ABLATION_METHODS + ['graph_regex'], show_rto=True)
+
+    _diag_table("2Wiki seeding diagnostics:", wiki_results)
+    _diag_table("MuSiQue seeding diagnostics:", musique_results)
+
     return combined
 
 

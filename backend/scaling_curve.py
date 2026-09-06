@@ -20,7 +20,10 @@ from scipy.sparse import lil_matrix, diags
 from typing import List, Dict, Tuple, Set
 
 sys.path.append("/Users/krishsapru/aethel-clean")
-from backend.public_benchmark import SimpleDocument, _SparseRetriever
+from backend.public_benchmark import (
+    SimpleDocument, _SparseRetriever, DENSE_MODELS, DENSE_KEYS,
+    _release_dense_model, DENSE_BATCH_SIZE,
+)
 from backend.evaluate_aethel import (
     KEEP_LABELS, _is_clean_entity, _RRF_POOL,
 )
@@ -36,20 +39,25 @@ RNG      = np.random.default_rng(42)
 
 # ── Subset-aware Dense Retriever ─────────────────────────────────────────────
 class _SubsetDenseRetriever:
-    """Dense retriever that slices pre-computed embeddings — no re-encoding."""
+    """Dense retriever that slices pre-computed embeddings — no re-encoding.
+
+    Query embeddings are supplied pre-computed as well: the 40 eval queries are
+    fixed while only the document subset varies, so encoding them inside
+    `query()` would repeat the same work across every size and trial.
+    """
 
     def __init__(self, subset_orig_indices: List[int],
                  all_embeddings: np.ndarray,
                  docs: List[SimpleDocument],
-                 model):
-        self._model = model
+                 query_embeddings: Dict[str, np.ndarray]):
         self._orig  = subset_orig_indices          # indices into full docs list
         self._embs  = all_embeddings[subset_orig_indices]   # (|subset|, dim)
         self._docs  = docs
+        self._qembs = query_embeddings
 
     def query(self, q: str, k: int = 5) -> List[str]:
         """Return up to k chunk_ids from the subset."""
-        qv   = self._model.encode([q], normalize_embeddings=True)[0]
+        qv   = self._qembs[q]
         sims = self._embs @ qv                     # cosine (embeddings normalised)
         top  = np.argsort(sims)[::-1][:k]
         return [self._docs[self._orig[i]].metadata["chunk_id"] for i in top]
@@ -260,28 +268,47 @@ def main():
     print(f"  Phase 1 done: {ne} clean entities ({raw_count} raw). "
           f"{time.time()-t0:.1f}s")
 
-    # ── Pre-compute Dense embeddings (once on full corpus) ────────────────
-    print("\nPre-computing Dense embeddings (once)...")
-    t1 = time.time()
-    try:
-        from sentence_transformers import SentenceTransformer
-        dense_model = SentenceTransformer("all-MiniLM-L6-v2")
-        all_embs = dense_model.encode(
-            [d.page_content for d in all_docs],
-            normalize_embeddings=True,
-            show_progress_bar=True,
-            batch_size=64,
-        )
-        use_dense = True
-        print(f"  Dense embeddings done. {time.time()-t1:.1f}s")
-    except Exception as e:
-        print(f"  Dense unavailable ({e}), skipping.")
-        use_dense = False
-        all_embs = None
-        dense_model = None
+    # ── Pre-compute Dense embeddings (once per encoder, full corpus) ──────
+    # One passage-embedding matrix and one query-embedding table per encoder.
+    # Queries are fixed across every size/trial, so they are encoded once here
+    # rather than inside the retrieval loop.
+    dense_state: Dict[str, Dict] = {}
+    query_texts = [q["query"] for q in multi_hop]
+    for key in DENSE_KEYS:
+        spec = DENSE_MODELS[key]
+        print(f"\nPre-computing embeddings for {spec['label']} "
+              f"({spec['model_name']})...")
+        t1 = time.time()
+        try:
+            from sentence_transformers import SentenceTransformer
+            model = SentenceTransformer(spec['model_name'])
+            embs = model.encode(
+                [spec['doc_prefix'] + d.page_content for d in all_docs],
+                normalize_embeddings=True,
+                show_progress_bar=False,
+                batch_size=DENSE_BATCH_SIZE,
+            )
+            q_embs = model.encode(
+                [spec['query_prefix'] + qt for qt in query_texts],
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            )
+            dense_state[key] = {
+                'embs': embs,
+                'qembs': {qt: q_embs[i] for i, qt in enumerate(query_texts)},
+            }
+            # Release the encoder immediately — only the (small) embedding
+            # matrices are needed from here on, and holding several encoders
+            # resident at once exhausts RAM on a small machine.
+            del model
+            _release_dense_model(key)
+            print(f"  {spec['label']} done. {time.time()-t1:.1f}s")
+        except Exception as e:
+            print(f"  {spec['label']} unavailable ({e}), skipping.")
 
     # ── Scaling loop ──────────────────────────────────────────────────────
-    systems = ["bm25", "ner3"] + (["dense"] if use_dense else [])
+    dense_systems = list(dense_state.keys())
+    systems = ["bm25", "ner3"] + dense_systems
     results = {s: {sz: [] for sz in SIZES} for s in systems}
 
     for sz in SIZES:
@@ -326,23 +353,24 @@ def main():
             hr_n = hits_n / len(multi_hop)
             results["ner3"][sz].append(hr_n)
 
-            # Dense
-            if use_dense:
-                dr     = _SubsetDenseRetriever(chosen, all_embs,
-                                               all_docs, dense_model)
+            # Dense — one retriever per encoder, all sharing the same subset
+            dense_msgs = []
+            for key in dense_systems:
+                st = dense_state[key]
+                dr = _SubsetDenseRetriever(chosen, st['embs'],
+                                           all_docs, st['qembs'])
                 hits_d = 0
                 for q in multi_hop:
                     top = dr.query(q["query"], k=5)
                     hits_d += hr_at_k(top, gold_map[q["query"]])
                 hr_d = hits_d / len(multi_hop)
-                results["dense"][sz].append(hr_d)
-                print(f"  trial {trial+1}: actual_size={actual_size}  "
-                      f"BM25={hr_b:.3f}  NER3={hr_n:.3f}  Dense={hr_d:.3f}  "
-                      f"({time.time()-t_trial:.1f}s)")
-            else:
-                print(f"  trial {trial+1}: actual_size={actual_size}  "
-                      f"BM25={hr_b:.3f}  NER3={hr_n:.3f}  "
-                      f"({time.time()-t_trial:.1f}s)")
+                results[key][sz].append(hr_d)
+                dense_msgs.append(f"{DENSE_MODELS[key]['label']}={hr_d:.3f}")
+
+            print(f"  trial {trial+1}: actual_size={actual_size}  "
+                  f"BM25={hr_b:.3f}  NER3={hr_n:.3f}  "
+                  + "  ".join(dense_msgs)
+                  + f"  ({time.time()-t_trial:.1f}s)")
 
     # ── Summarise ─────────────────────────────────────────────────────────
     summary = {}

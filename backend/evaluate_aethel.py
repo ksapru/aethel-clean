@@ -16,7 +16,8 @@ from typing import List, Dict, Set
 
 sys.path.append("/Users/krishsapru/aethel-clean")
 from backend.public_benchmark import (
-    SimpleDocument, _SparseRetriever, _DenseRetriever, _GraphRetriever
+    SimpleDocument, _SparseRetriever, _DenseRetriever, _GraphRetriever,
+    DENSE_MODELS, DENSE_KEYS, _release_dense_model,
 )
 
 CHUNKS = "/Users/krishsapru/aethel-clean/backend/data/processed_chunks.json"
@@ -282,28 +283,51 @@ def main():
         for c in chunks
     ]
 
+    n_dense = len(DENSE_KEYS)
+    n_steps = 4 + n_dense
     print("Initializing retrievers...")
-    print("  1/5  BM25...")
+    print(f"  1/{n_steps}  BM25...")
     sparse = _SparseRetriever(docs)
-    print("  2/5  Dense...")
-    dense = _DenseRetriever(docs)
-    print("  3/5  Aethel-Regex (original)...")
-    graph_regex = _GraphRetriever(docs)
-    print("  4/5  Aethel-NERv3 (filtered NER + substring adjacency)...")
-    graph_ner = _NERv3Retriever(docs)
-    print("  5/5  Hybrid-RRF (BM25 + NER3 fusion, computed post-retrieval)")
 
-    print("\nRunning 40 queries...\n")
+    # One encoder at a time: build its index, score all queries, then release
+    # the model before loading the next. Holding four encoders resident over a
+    # 4k-chunk corpus exceeds available RAM on a small machine and swap-thrashes.
+    # The retained rankings are tiny (40 queries x 10 doc indices per encoder).
+    dense_rankings: Dict[str, Dict[str, List[int]]] = {}
+    for i, key in enumerate(DENSE_KEYS):
+        label = DENSE_MODELS[key]['label']
+        print(f"  {2 + i}/{n_steps}  {label} ({DENSE_MODELS[key]['model_name']})...")
+        retr = _DenseRetriever(docs, model_key=key)
+        dense_rankings[label] = {
+            q["query"]: retr.query(q["query"], k=10) for q in queries
+        }
+        del retr
+        _release_dense_model(key)
+
+    print(f"  {2 + n_dense}/{n_steps}  Aethel-Regex (original)...")
+    graph_regex = _GraphRetriever(docs)
+    print(f"  {3 + n_dense}/{n_steps}  Aethel-NERv3 (filtered NER + substring adjacency)...")
+    graph_ner = _NERv3Retriever(docs)
+    print(f"  {4 + n_dense}/{n_steps}  Hybrid-RRF (BM25 + NER3 fusion, computed post-retrieval)")
+
+    print(f"\nRunning {len(queries)} queries...\n")
 
     # Dense / Aethel-Reg are individual baselines only (k=10 for scoring).
     # BM25 / NER3 are ALSO the fusion inputs: retrieved at k=_RRF_POOL so
     # RRF sees the full ranked list before truncation.
     base_systems = {
-        "BM25":        {"ret": sparse,      "graph": False, "fusion": True},
-        "Dense":       {"ret": dense,       "graph": False, "fusion": False},
+        "BM25": {"ret": sparse, "graph": False, "fusion": True},
+    }
+    for key in DENSE_KEYS:
+        label = DENSE_MODELS[key]['label']
+        base_systems[label] = {
+            "ret": None, "graph": False, "fusion": False,
+            "precomputed": dense_rankings[label],
+        }
+    base_systems.update({
         "Aethel-Reg":  {"ret": graph_regex, "graph": True,  "fusion": False},
         "Aethel-NER3": {"ret": graph_ner,   "graph": True,  "fusion": True},
-    }
+    })
     all_system_names = list(base_systems.keys()) + ["Hybrid-RRF"]
     results = {s: [] for s in all_system_names}
 
@@ -322,7 +346,10 @@ def main():
             else:
                 pool_k = 10
 
-            if cfg["graph"]:
+            if cfg.get("precomputed") is not None:
+                # Dense rankings were computed up-front, one encoder at a time.
+                idxs = cfg["precomputed"][qtxt]
+            elif cfg["graph"]:
                 idxs = cfg["ret"].query(qtxt, k=pool_k, use_regex=True)
             else:
                 idxs = cfg["ret"].query(qtxt, k=pool_k)
@@ -358,14 +385,16 @@ def main():
         results["Hybrid-RRF"].append({"query": qtxt, "q_type": qtype, "scores": rrf_sc})
 
     # ── Report ───────────────────────────────────────────────────────
-    order = ["BM25", "Dense", "Aethel-Reg", "Aethel-NER3", "Hybrid-RRF"]
+    order = (["BM25"]
+             + [DENSE_MODELS[k]['label'] for k in DENSE_KEYS]
+             + ["Aethel-Reg", "Aethel-NER3", "Hybrid-RRF"])
     print("\n" + "=" * 90)
     print("EVALUATION v3 — filtered NER + substring adjacency + Hybrid-RRF (BM25⊕NER3)")
     print("=" * 90 + "\n")
 
     for grp in ["all", "single-hop", "multi-hop"]:
         print(f"--- {grp.upper()} ---")
-        hdr = (f"{'System':<13} | {'N':>3} | {'HR@1':>6} | {'HR@3':>6} | "
+        hdr = (f"{'System':<18} | {'N':>3} | {'HR@1':>6} | {'HR@3':>6} | "
                f"{'HR@5':>6} | {'HR@10':>6} | {'MRR':>6} | {'Recall@5':>8}")
         print(hdr)
         print("-" * len(hdr))
@@ -377,7 +406,7 @@ def main():
             if n == 0: continue
             vals = {m: np.mean([r["scores"][m] for r in rows])
                     for m in ["hr1","hr3","hr5","hr10","mrr","recall5"]}
-            print(f"{sn:<13} | {n:>3} | {vals['hr1']:>6.3f} | "
+            print(f"{sn:<18} | {n:>3} | {vals['hr1']:>6.3f} | "
                   f"{vals['hr3']:>6.3f} | {vals['hr5']:>6.3f} | "
                   f"{vals['hr10']:>6.3f} | {vals['mrr']:>6.3f} | "
                   f"{vals['recall5']:>8.3f}")
