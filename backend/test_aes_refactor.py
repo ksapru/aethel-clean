@@ -5,11 +5,11 @@ behaviour-preserving for the two historically shipped configurations.
 Compares the refactored implementation against the pre-refactor version
 (extracted from git) on real 2WikiMultiHopQA and MuSiQue items:
 
-  new(use_regex=False) == original(use_regex=False)   [Graph (PPR)]
-  new(use_regex=True)  == original(use_regex=True)     [Aethel (PPR+BCT)]
-  new(bct_none rung)   == new(use_regex=False)         [ablation rung 0 sanity]
+  new(use_aes=False)   == original(use_regex=False)   [Graph (PPR)]
+  new(use_aes=True)    == original(use_regex=True)    [Graph (PPR + AES)]
+  new(aes_none rung)   == new(use_aes=False)            [ablation rung 0 sanity]
 
-Run:  PYTHONPATH=. python3 backend/test_bct_refactor.py [--orig /tmp/orig_pb.py]
+Run:  PYTHONPATH=. python3 backend/test_aes_refactor.py [--orig /tmp/orig_pb.py]
 """
 
 import argparse
@@ -80,17 +80,17 @@ def run_dataset(label, cases, orig_mod):
             failures.append((qi, 'entities', new_g.entities[:5], old_g.entities[:5]))
             continue
 
-        for use_regex in (False, True):
-            new_r = new_g.query(question, k=5, use_regex=use_regex)
-            old_r = old_g.query(question, k=5, use_regex=use_regex)
+        for enabled in (False, True):
+            new_r = new_g.query(question, k=5, use_aes=enabled)
+            old_r = old_g.query(question, k=5, use_regex=enabled)
             if new_r != old_r:
-                failures.append((qi, f'use_regex={use_regex}', new_r, old_r))
+                failures.append((qi, f'aes={enabled}', new_r, old_r))
 
         # Ablation rung 0 must reproduce the exact-match baseline.
-        rung0 = new_g.query(question, k=5, **GRAPH_METHODS['bct_none'])
-        base = new_g.query(question, k=5, use_regex=False)
+        rung0 = new_g.query(question, k=5, **GRAPH_METHODS['aes_none'])
+        base = new_g.query(question, k=5, use_aes=False)
         if rung0 != base:
-            failures.append((qi, 'bct_none vs graph', rung0, base))
+            failures.append((qi, 'aes_none vs graph', rung0, base))
 
     status = "PASS" if not failures else "FAIL"
     print(f"  [{status}] {label}: {len(cases)} questions, {len(failures)} mismatches")

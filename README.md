@@ -3,7 +3,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-green.svg)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#)
 
-Aethel is a graph-augmented retrieval framework for multi-hop question answering over unstructured financial documents. It models document collections as bipartite entity–passage graphs and executes Personalized PageRank (PPR) random walks to resolve cross-document, multi-hop queries. A **Bipartite Coreference Teleportation (BCT)** layer expands entity mentions via alias matching and substring overlap, improving hit rate coverage at the cost of top-1 precision — the right tradeoff for financial diligence workflows where all supporting passages must be surfaced.
+Aethel is a graph-augmented retrieval framework for multi-hop question answering over unstructured financial documents. It models document collections as bipartite entity–passage graphs and executes Personalized PageRank (PPR) random walks to resolve cross-document, multi-hop queries. An **alias-expanded seeding (AES)** layer expands entity mentions via alias matching and substring overlap, improving hit rate coverage at the cost of top-1 precision. Note this is surface-form matching, not coreference resolution: no mention-clustering or pronoun resolution is performed.
 
 
 ## Architecture
@@ -12,7 +12,7 @@ The framework has three components:
 
 1. **Bipartite Entity–Passage Graph** — entities (`V_e`) and passages (`V_p`) are vertices in a bipartite graph `G = (V_p ∪ V_e, E)`. Query entities seed a PPR random walk over sparse adjacency paths to rank passages.
 
-2. **Bipartite Coreference Teleportation (BCT)** — expands the PPR personalization vector with alias matches and substring overlaps, seeding additional start nodes to improve hit rate coverage across entity variants (e.g., "Apollo" → "Apollo Global Management").
+2. **Alias-Expanded Seeding (AES)** — expands the PPR personalization vector with alias matches and substring overlaps, seeding additional start nodes to improve hit rate coverage across entity variants (e.g., "Apollo" → "Apollo Global Management"). This is surface-form matching only, not coreference resolution.
 
 3. **Orchestrated Specialist Swarm** — retrieved passages are forwarded to domain-specialist agents (Liquidity, Valuation, Diligence Auditor) coordinated by a central Orchestrator. The swarm is described in `backend/agents/` and `backend/main.py`; it is not quantitatively evaluated in the current paper.
 
@@ -31,27 +31,27 @@ All numbers below come from `backend/public_benchmark.py` running against the of
 | Dense (BGE-base, 109M) | **0.985** | **1.000** | **1.000** | **0.993** | 0.795 | 0.925 | **0.985** | 0.865 |
 | Dense (GTE-base, 109M) | **0.985** | **1.000** | **1.000** | **0.993** | **0.825** | **0.950** | 0.980 | **0.888** |
 | Bipartite PPR   | 0.830 | 0.970 | 0.995 | 0.900 | 0.630 | 0.800 | 0.875 | 0.721 |
-| Aethel (PPR+BCT) | 0.785 | 0.980 | **1.000** | 0.877 | 0.570 | 0.785 | 0.885 | 0.687 |
+| Graph (PPR + AES) | 0.785 | 0.980 | **1.000** | 0.877 | 0.570 | 0.785 | 0.885 | 0.687 |
 
-**Key result:** BCT improves HR@5 over Bipartite PPR on both datasets, at the cost of HR@1 — but **this does not make it competitive with modern dense retrieval.** All three base-size encoders match Aethel's 1.000 HR@5 on 2Wiki while scoring 0.960–0.985 HR@1 against Aethel's 0.785, and on MuSiQue BGE-base leads HR@5 by 10 points (0.985 vs 0.885). An earlier version of this README claimed HR@5 coverage as Aethel's contribution; that claim held only against MiniLM and is withdrawn. What the graph retains is an explicit, auditable entity–passage traversal path — not superior retrieval quality.
+**Key result:** AES improves HR@5 over Bipartite PPR on both datasets, at the cost of HR@1 — but **this does not make it competitive with modern dense retrieval.** All three base-size encoders match Aethel's 1.000 HR@5 on 2Wiki while scoring 0.960–0.985 HR@1 against Aethel's 0.785, and on MuSiQue BGE-base leads HR@5 by 10 points (0.985 vs 0.885). An earlier version of this README claimed HR@5 coverage as Aethel's contribution; that claim held only against MiniLM and is withdrawn. What the graph retains is an explicit, auditable entity–passage traversal path — not superior retrieval quality.
 
 BGE and E5 use their authors' prescribed query/passage instruction prefixes; omitting them materially understates both models.
 
-### BCT ablation
+### AES ablation
 
-BCT bundles three mechanisms. Adding one at a time (mean PPR seeds per query in parentheses):
+AES bundles three mechanisms. Adding one at a time (mean PPR seeds per query in parentheses):
 
 | Configuration | 2Wiki HR@1 | 2Wiki HR@5 | MuSiQue HR@1 | MuSiQue HR@5 |
 | :--- | :---: | :---: | :---: | :---: |
 | Exact match only (= Bipartite PPR) | **0.830** (3.28) | 0.995 | **0.630** (4.04) | 0.875 |
 | + alias expansion | 0.780 (3.82) | **1.000** | 0.490 (5.42) | 0.880 |
 | + substring overlap | 0.775 (3.87) | **1.000** | 0.490 (5.42) | 0.880 |
-| + weighted teleport (= full BCT) | 0.785 (3.87) | **1.000** | 0.570 (5.42) | **0.885** |
+| + weighted teleport (= full AES) | 0.785 (3.87) | **1.000** | 0.570 (5.42) | **0.885** |
 
 - **Substring overlap is inert** — bit-identical on MuSiQue; on 2Wiki it costs 0.005 HR@1 and gains nothing. It should be removed.
 - **Alias expansion supplies the entire HR@5 gain** but costs 0.050 (2Wiki) and 0.140 (MuSiQue) HR@1.
 - **Weighted teleport is the most valuable component** — it adds no seeds yet recovers 0.080 of MuSiQue HR@1 and contributes the final +0.005 HR@5.
-- Total BCT coverage gain is **+0.005 / +0.010 HR@5 — one and two questions out of 200.** Not a robust effect at this sample size.
+- Total AES coverage gain is **+0.005 / +0.010 HR@5 — one and two questions out of 200.** Not a robust effect at this sample size.
 
 ### Open-corpus and scaling
 

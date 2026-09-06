@@ -912,7 +912,7 @@
       "zero_seed_questions": 0,
       "fallback_questions": 0
     },
-    "graph_regex": {
+    "graph_aes": {
       "hr1": 0.785,
       "hr3": 0.98,
       "hr5": 1.0,
@@ -921,7 +921,7 @@
       "zero_seed_questions": 0,
       "fallback_questions": 0
     },
-    "bct_none": {
+    "aes_none": {
       "hr1": 0.83,
       "hr3": 0.97,
       "hr5": 0.995,
@@ -930,7 +930,7 @@
       "zero_seed_questions": 0,
       "fallback_questions": 0
     },
-    "bct_alias": {
+    "aes_alias": {
       "hr1": 0.78,
       "hr3": 0.98,
       "hr5": 1.0,
@@ -939,7 +939,7 @@
       "zero_seed_questions": 0,
       "fallback_questions": 0
     },
-    "bct_alias_sub": {
+    "aes_alias_sub": {
       "hr1": 0.775,
       "hr3": 0.98,
       "hr5": 1.0,
@@ -948,7 +948,7 @@
       "zero_seed_questions": 0,
       "fallback_questions": 0
     },
-    "bct_full": {
+    "aes_full": {
       "hr1": 0.785,
       "hr3": 0.98,
       "hr5": 1.0,
@@ -2217,7 +2217,7 @@
       "zero_seed_questions": 0,
       "fallback_questions": 2
     },
-    "graph_regex": {
+    "graph_aes": {
       "hr1": 0.57,
       "hr3": 0.785,
       "hr5": 0.885,
@@ -2429,7 +2429,7 @@
       "zero_seed_questions": 0,
       "fallback_questions": 0
     },
-    "bct_none": {
+    "aes_none": {
       "hr1": 0.63,
       "hr3": 0.8,
       "hr5": 0.875,
@@ -2641,7 +2641,7 @@
       "zero_seed_questions": 0,
       "fallback_questions": 2
     },
-    "bct_alias": {
+    "aes_alias": {
       "hr1": 0.49,
       "hr3": 0.78,
       "hr5": 0.88,
@@ -2853,7 +2853,7 @@
       "zero_seed_questions": 0,
       "fallback_questions": 0
     },
-    "bct_alias_sub": {
+    "aes_alias_sub": {
       "hr1": 0.49,
       "hr3": 0.78,
       "hr5": 0.88,
@@ -3065,7 +3065,7 @@
       "zero_seed_questions": 0,
       "fallback_questions": 0
     },
-    "bct_full": {
+    "aes_full": {
       "hr1": 0.57,
       "hr3": 0.785,
       "hr5": 0.885,
@@ -3278,7 +3278,7 @@
       "fallback_questions": 0
     },
     "n_questions": 200,
-    "bootstrap_graph_vs_regex": {
+    "bootstrap_graph_vs_aes": {
       "observed": 0.06,
       "ci_lo": -0.0,
       "ci_hi": 0.13,
