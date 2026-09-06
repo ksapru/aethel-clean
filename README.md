@@ -1,27 +1,63 @@
-# Aethel: Bipartite Graph-Walk Retrieval for Multi-Hop Financial Diligence
+# Dense Retrieval Degrades Faster Than BM25 at Scale
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-green.svg)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#)
 
-Aethel is a graph-augmented retrieval framework for multi-hop question answering over unstructured financial documents. It models document collections as bipartite entity–passage graphs and executes Personalized PageRank (PPR) random walks to resolve cross-document, multi-hop queries. An **alias-expanded seeding (AES)** layer expands entity mentions via alias matching and substring overlap, improving hit rate coverage at the cost of top-1 precision. Note this is surface-form matching, not coreference resolution: no mention-clustering or pronoun resolution is performed.
+Code, corpus and evaluation harness for the paper of the same name (`paper.tex`). The project is codenamed **Aethel**.
 
+We measure how lexical, dense, and graph-based retrievers degrade as a corpus grows, using multi-hop queries over real financial disclosures. **The headline result: every one of four dense bi-encoders spanning 22M–109M parameters loses far more multi-hop HR@5 than BM25 as the pool grows from 100 to 4,123 chunks (−0.310 to −0.500 versus BM25's −0.100).** Gold passages are held in every subsample, so only distractor density varies. Testing four encoders rather than one establishes this as a property of dense retrieval on keyword-dense text, not an artifact of an outdated baseline.
+
+Against that backdrop we report a **negative result for graph retrieval**: bipartite Personalized PageRank over an entity–passage graph, in the style of HippoRAG v2, does not beat a well-chosen dense encoder or BM25 at open-corpus scale.
+
+> **Scope note.** The graph retriever is a reimplementation of the bipartite PPR retrieval stage of HippoRAG v2, not an extension of it. It does not use HippoRAG's LLM-based entity extraction, continual-memory components, or query-to-node linking. Differences from published HippoRAG numbers reflect the reimplementation and our regex-based entity extraction.
 
 ## Architecture
 
-The framework has three components:
-
 1. **Bipartite Entity–Passage Graph** — entities (`V_e`) and passages (`V_p`) are vertices in a bipartite graph `G = (V_p ∪ V_e, E)`. Query entities seed a PPR random walk over sparse adjacency paths to rank passages.
 
-2. **Alias-Expanded Seeding (AES)** — expands the PPR personalization vector with alias matches and substring overlaps, seeding additional start nodes to improve hit rate coverage across entity variants (e.g., "Apollo" → "Apollo Global Management"). This is surface-form matching only, not coreference resolution.
+2. **Alias-Expanded Seeding (AES)** — expands the PPR personalization vector with alias matches and substring overlaps, seeding additional start nodes across entity variants (e.g. "Apollo" → "Apollo Global Management"). This is surface-form matching only: no mention-clustering, no pronoun resolution, no access to discourse structure. The ablation below shows its net contribution is one to two questions in 200.
 
-3. **Orchestrated Specialist Swarm** — retrieved passages are forwarded to domain-specialist agents (Liquidity, Valuation, Diligence Auditor) coordinated by a central Orchestrator. The swarm is described in `backend/agents/` and `backend/main.py`; it is not quantitatively evaluated in the current paper.
+3. **Orchestrated Specialist Swarm** — retrieved passages are forwarded to domain-specialist agents (Liquidity, Valuation, Diligence Auditor) coordinated by an Orchestrator. Described in `backend/agents/` and `backend/main.py`; **not quantitatively evaluated** in the paper.
 
+## Results
 
-## Empirical Results
+Every table below is generated from committed result files — `eval_cache.json`, `backend/data/scaling_results.json`, and `backend/data/open_corpus_results.json` — and matches the corresponding table in `paper.tex`.
 
-All numbers below come from `backend/public_benchmark.py` running against the official HuggingFace validation splits. Results are cached in `eval_cache.json` (committed to the repository) for instant reproducibility.
+### 1. Scale sensitivity (headline result)
 
-**200-question random samples, seed=42, from official validation splits of MuSiQue and 2WikiMultiHopQA.**
+Multi-hop HR@5 as the corpus grows. Gold passages are retained in every subsample, so only distractor density varies.
+
+| System | 100 | 500 | 1K | 2K | 4.1K | Δ |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| BM25 | 0.800 | 0.760 | 0.710 | 0.650 | 0.700 | **-0.100** |
+| Graph (Aethel-NER3) | 0.800 | 0.670 | 0.660 | 0.610 | 0.600 | **-0.200** |
+| Dense (BGE-base, 109M) | 0.910 | 0.790 | 0.700 | 0.620 | 0.600 | **-0.310** |
+| Dense (E5-base, 109M) | 0.800 | 0.650 | 0.590 | 0.470 | 0.450 | **-0.350** |
+| Dense (MiniLM, 22M) | 0.840 | 0.660 | 0.610 | 0.560 | 0.450 | **-0.390** |
+| Dense (GTE-base, 109M) | 0.800 | 0.670 | 0.520 | 0.410 | 0.300 | **-0.500** |
+
+**Every dense encoder degrades 3–5× faster than BM25**, across a 5× parameter range and four independently trained models. GTE-base collapses hardest (−0.500) despite being the strongest encoder on the closed-pool benchmarks — closed-pool rank does not predict open-corpus behavior.
+
+### 2. Open-corpus financial retrieval
+
+4,123-chunk corpus, 40 annotated queries (20 single-hop, 20 multi-hop). Gold labels frozen before any retriever ran.
+
+| System | Multi HR@1 | Multi HR@5 | Multi MRR | Multi R@5 | All HR@5 | All MRR |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| BM25 | 0.350 | **0.700** | 0.468 | 0.525 | 0.650 | 0.367 |
+| Dense (MiniLM) | 0.200 | 0.450 | 0.318 | 0.275 | 0.450 | 0.311 |
+| Dense (BGE-base) | 0.250 | 0.600 | 0.408 | 0.425 | 0.525 | 0.404 |
+| Dense (E5-base) | 0.200 | 0.450 | 0.315 | 0.300 | 0.475 | 0.319 |
+| Dense (GTE-base) | 0.200 | 0.300 | 0.248 | 0.200 | 0.375 | 0.324 |
+| Aethel-Reg | 0.050 | 0.400 | 0.175 | 0.200 | 0.275 | 0.121 |
+| Aethel-NER3 | 0.150 | 0.600 | 0.360 | 0.350 | 0.425 | 0.250 |
+| Hybrid-RRF | 0.350 | 0.650 | **0.479** | 0.475 | 0.475 | 0.367 |
+
+**BM25 leads on multi-hop HR@5 (0.700).** The graph retriever reaches 0.600 — which *ties* BGE-base rather than beating dense retrieval, as earlier versions reported against MiniLM alone (0.450).
+
+### 3. Closed-pool benchmarks
+
+200-question random samples, seed=42, from official MuSiQue and 2WikiMultiHopQA validation splits.
 
 | Method | 2Wiki HR@1 | 2Wiki HR@3 | 2Wiki HR@5 | 2Wiki MRR | MuSiQue HR@1 | MuSiQue HR@3 | MuSiQue HR@5 | MuSiQue MRR |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -30,68 +66,78 @@ All numbers below come from `backend/public_benchmark.py` running against the of
 | Dense (E5-base, 109M) | 0.960 | **1.000** | **1.000** | 0.980 | 0.740 | 0.915 | 0.965 | 0.834 |
 | Dense (BGE-base, 109M) | **0.985** | **1.000** | **1.000** | **0.993** | 0.795 | 0.925 | **0.985** | 0.865 |
 | Dense (GTE-base, 109M) | **0.985** | **1.000** | **1.000** | **0.993** | **0.825** | **0.950** | 0.980 | **0.888** |
-| Bipartite PPR   | 0.830 | 0.970 | 0.995 | 0.900 | 0.630 | 0.800 | 0.875 | 0.721 |
+| Graph (PPR, exact match) | 0.830 | 0.970 | 0.995 | 0.900 | 0.630 | 0.800 | 0.875 | 0.721 |
 | Graph (PPR + AES) | 0.785 | 0.980 | **1.000** | 0.877 | 0.570 | 0.785 | 0.885 | 0.687 |
-
-**Key result:** AES improves HR@5 over Bipartite PPR on both datasets, at the cost of HR@1 — but **this does not make it competitive with modern dense retrieval.** All three base-size encoders match Aethel's 1.000 HR@5 on 2Wiki while scoring 0.960–0.985 HR@1 against Aethel's 0.785, and on MuSiQue BGE-base leads HR@5 by 10 points (0.985 vs 0.885). An earlier version of this README claimed HR@5 coverage as Aethel's contribution; that claim held only against MiniLM and is withdrawn. What the graph retains is an explicit, auditable entity–passage traversal path — not superior retrieval quality.
 
 BGE and E5 use their authors' prescribed query/passage instruction prefixes; omitting them materially understates both models.
 
-### AES ablation
+**All three base-size encoders match the graph retriever's 1.000 HR@5 on 2Wiki while scoring 20+ points higher on HR@1**, and BGE-base leads MuSiQue HR@5 by 10 points. Earlier versions of this README claimed HR@5 coverage as the graph's contribution; that held only against MiniLM and is withdrawn.
 
-AES bundles three mechanisms. Adding one at a time (mean PPR seeds per query in parentheses):
+### 4. AES ablation
 
-| Configuration | 2Wiki HR@1 | 2Wiki HR@5 | MuSiQue HR@1 | MuSiQue HR@5 |
-| :--- | :---: | :---: | :---: | :---: |
-| Exact match only (= Bipartite PPR) | **0.830** (3.28) | 0.995 | **0.630** (4.04) | 0.875 |
-| + alias expansion | 0.780 (3.82) | **1.000** | 0.490 (5.42) | 0.880 |
-| + substring overlap | 0.775 (3.87) | **1.000** | 0.490 (5.42) | 0.880 |
-| + weighted teleport (= full AES) | 0.785 (3.87) | **1.000** | 0.570 (5.42) | **0.885** |
+AES bundles three mechanisms. Each row adds exactly one, on top of exact entity matching.
 
-- **Substring overlap is inert** — bit-identical on MuSiQue; on 2Wiki it costs 0.005 HR@1 and gains nothing. It should be removed.
+| Configuration | 2Wiki seeds | 2Wiki HR@1 | 2Wiki HR@5 | MuSiQue seeds | MuSiQue HR@1 | MuSiQue HR@5 |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| Exact match only (= Graph PPR) | 3.28 | 0.830 | 0.995 | 4.04 | 0.630 | 0.875 |
+| + alias expansion | 3.82 | 0.780 | 1.000 | 5.42 | 0.490 | 0.880 |
+| + substring overlap | 3.87 | 0.775 | 1.000 | 5.42 | 0.490 | 0.880 |
+| + weighted teleport (= full AES) | 3.87 | 0.785 | 1.000 | 5.42 | 0.570 | 0.885 |
+
+- **Substring overlap is inert** — bit-identical on MuSiQue; on 2Wiki it adds 0.05 seeds and costs 0.005 HR@1 while gaining nothing. It should be removed.
 - **Alias expansion supplies the entire HR@5 gain** but costs 0.050 (2Wiki) and 0.140 (MuSiQue) HR@1.
-- **Weighted teleport is the most valuable component** — it adds no seeds yet recovers 0.080 of MuSiQue HR@1 and contributes the final +0.005 HR@5.
+- **Weighted teleport is the most valuable component** — it adds no seeds, yet recovers 0.080 of MuSiQue HR@1 and contributes the final +0.005 HR@5.
 - Total AES coverage gain is **+0.005 / +0.010 HR@5 — one and two questions out of 200.** Not a robust effect at this sample size.
 
-### Open-corpus and scaling
+## Limitations
 
-On the 4,123-chunk financial corpus (20 multi-hop queries), BM25 still leads (HR@5 0.700). Aethel-NER3 reaches 0.600, which **ties** BGE-base (0.600) rather than beating dense retrieval as previously reported against MiniLM (0.450).
+Open-corpus conclusions rest on **40 queries labelled by a single annotator**, with no inter-annotator agreement statistic. At N=20 multi-hop, the paired-bootstrap CI on the Hybrid-RRF vs BM25 MRR difference is [−0.163, +0.192] — wide enough to accommodate a substantial effect in either direction. The scaling result is a **single-corpus finding** on proper-noun-dense financial text, precisely the condition that favours BM25; we do not claim it generalizes to corpora with different lexical properties. See the Limitations section of `paper.tex` for the full list.
 
-The paper's central scaling claim **survives the stronger baselines and generalizes**. From 100 → 4,123 chunks, multi-hop HR@5 changes by:
-
-| BM25 | Aethel-NER3 | MiniLM | BGE-base | E5-base | GTE-base |
-| :---: | :---: | :---: | :---: | :---: | :---: |
-| −0.100 | −0.200 | −0.390 | −0.310 | −0.350 | **−0.500** |
-
-Every dense encoder degrades 3–5× faster than BM25, so the collapse is a property of dense retrieval on keyword-dense financial text, not an artifact of an outdated model. Note that **GTE-base is the best encoder on MuSiQue and the worst on the financial corpus** — closed-pool benchmark rank does not predict open-corpus behavior.
-
-
-## Reproducing the Results
+## Reproducing
 
 ```bash
-git clone https://github.com/anonymous/aethel-clean.git
+git clone https://github.com/ksapru/aethel-clean.git
 cd aethel-clean
 pip install -r requirements.txt
 
-# Run the full benchmark (requires 'datasets' library, streams from HuggingFace, ~5 min)
-# Note: Results are cached to eval_cache.json
+# Closed-pool benchmarks + AES ablation (tables 3 and 4)
 PYTHONPATH=. python3 backend/public_benchmark.py
+
+# Open-corpus evaluation (table 2)
+PYTHONPATH=. python3 backend/evaluate_aethel.py
+
+# Scale-sensitivity curve (table 1)
+PYTHONPATH=. python3 backend/scaling_curve.py
 ```
 
-Results are cached to `eval_cache.json` for instant reproduction. To recompute from scratch, delete the cache file.
+Closed-pool results are cached in `eval_cache.json` for instant reproduction; delete it to recompute. PPR is deterministic power iteration over a fixed graph and seed vector, so graph results are bit-identical across runs. spaCy NER introduces ≤0.025 variation in Aethel-NER3 figures across environments.
+
+**On low-memory machines** (8 GB or less), the four encoders will exhaust RAM and swap-thrash. Force CPU and a smaller batch:
+
+```bash
+AETHEL_DENSE_DEVICE=cpu AETHEL_DENSE_BATCH=8 PYTHONPATH=. python3 backend/evaluate_aethel.py
+```
+
+### Verifying the AES refactor
+
+AES is implemented as flags on a single retriever. `backend/test_aes_refactor.py` is a differential test proving the flag refactor reproduces the pre-refactor implementation exactly:
+
+```bash
+git show 3863346:backend/public_benchmark.py > /tmp/orig_pb.py
+PYTHONPATH=. python3 backend/test_aes_refactor.py --orig /tmp/orig_pb.py
+```
 
 ## Running the Diligence System
 
-To run the full multi-agent diligence pipeline against your own documents:
+To run the multi-agent diligence pipeline against your own documents:
 
-1. Configure your `.env` file (based on `.env.example`). Note that `OPENAI_API_KEY` is required at startup because `RAGService.__init__` instantiates HippoRAG unconditionally upon initialization:
+1. Configure `.env` (see `.env.example`). `OPENAI_API_KEY` is required at startup because `RAGService.__init__` instantiates HippoRAG unconditionally:
    ```env
    OPENAI_API_KEY=your-api-key-here
    ```
-2. Place documents for ingestion. Create a `docs/` directory at the project root and place your PDF/text files there (otherwise the ingestion script will exit silently with an error):
+2. Place PDF/text files in a `docs/` directory at the project root (the ingestion script exits silently without it):
    ```bash
    mkdir -p docs
-   # [Place actual PDF or text files inside ./docs/]
    PYTHONPATH=. python3 backend/ingest.py
    ```
 3. Run the orchestrator:
