@@ -1,11 +1,13 @@
-# Dense Retrieval Degrades Faster Than BM25 at Scale
+# Off-the-Shelf Dense Retrieval Degrades Faster Than BM25 at Scale
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-green.svg)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#)
 
 Code, corpus and evaluation harness for the paper of the same name (`paper.tex`). The project is codenamed **Aethel**.
 
-We measure how lexical, dense, and graph-based retrievers degrade as a corpus grows, using multi-hop queries over real financial disclosures. **The headline result: every one of four dense bi-encoders spanning 22M–109M parameters loses far more multi-hop HR@5 than BM25 as the pool grows from 100 to 4,123 chunks (−0.310 to −0.500 versus BM25's −0.100).** Gold passages are held in every subsample, so only distractor density varies. Testing four encoders rather than one establishes this as a property of dense retrieval on keyword-dense text, not an artifact of an outdated baseline.
+We measure how lexical, dense, and graph-based retrievers degrade as a corpus grows, using multi-hop queries over real financial disclosures. **The headline result: every one of four dense bi-encoders spanning 22M–109M parameters loses far more multi-hop HR@5 than BM25 as the pool grows from 100 to 4,123 chunks (−0.310 to −0.500 versus BM25's −0.100).** Gold passages are held in every subsample, so only distractor density varies. Testing four encoders rather than one establishes this is not an artifact of a single outdated baseline.
+
+All four are **general-domain encoders used off the shelf**, with no in-domain fine-tuning — hence the scoping in the title. Whether a retriever adapted to financial text degrades the same way is untested here, and is the most direct challenge to this result.
 
 Against that backdrop we report a **negative result for graph retrieval**: bipartite Personalized PageRank over an entity–passage graph, in the style of HippoRAG v2, does not beat a well-chosen dense encoder or BM25 at open-corpus scale.
 
@@ -36,7 +38,7 @@ Multi-hop HR@5 as the corpus grows. Gold passages are retained in every subsampl
 | Dense (MiniLM, 22M) | 0.840 | 0.660 | 0.610 | 0.560 | 0.450 | **-0.390** |
 | Dense (GTE-base, 109M) | 0.800 | 0.670 | 0.520 | 0.410 | 0.300 | **-0.500** |
 
-**Every dense encoder degrades 3–5× faster than BM25**, across a 5× parameter range and four independently trained models. GTE-base collapses hardest (−0.500) despite being the strongest encoder on the closed-pool benchmarks — closed-pool rank does not predict open-corpus behavior.
+**Every off-the-shelf dense encoder degrades 3–5× faster than BM25**, across a 5× parameter range and four independently trained models. GTE-base collapses hardest (−0.500) despite being the strongest encoder on the closed-pool benchmarks — closed-pool rank does not predict open-corpus behavior.
 
 ### 2. Open-corpus financial retrieval
 
@@ -91,7 +93,7 @@ AES bundles three mechanisms. Each row adds exactly one, on top of exact entity 
 
 ## Limitations
 
-Open-corpus conclusions rest on **40 queries labelled by a single annotator**, with no inter-annotator agreement statistic. At N=20 multi-hop, the paired-bootstrap CI on the Hybrid-RRF vs BM25 MRR difference is [−0.162, +0.194] (B=10,000, two-sided p=0.90) — wide enough to accommodate a substantial effect in either direction. Regenerate with `PYTHONPATH=. python3 backend/perquery_rr.py`. The scaling result is a **single-corpus finding** on proper-noun-dense financial text, precisely the condition that favours BM25; we do not claim it generalizes to corpora with different lexical properties. See the Limitations section of `paper.tex` for the full list.
+Open-corpus conclusions rest on **40 queries labelled by a single annotator**, with no inter-annotator agreement statistic. At N=20 multi-hop, the paired-bootstrap CI on the Hybrid-RRF vs BM25 MRR difference is [−0.162, +0.194] (B=10,000, two-sided p=0.90) — wide enough to accommodate a substantial effect in either direction. Regenerate with `PYTHONPATH=. python3 backend/perquery_rr.py`. The scaling result is a **single-corpus finding** on proper-noun-dense financial text, precisely the condition that favours BM25; we do not claim it generalizes to corpora with different lexical properties. All four encoders are **general-domain and used off the shelf**, so the claim covers off-the-shelf dense retrieval, not domain-adapted bi-encoders, which are untested. See the Limitations section of `paper.tex` for the full list.
 
 ## Reproducing
 
