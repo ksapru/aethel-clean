@@ -50,7 +50,7 @@
 \begin{abstract}
 We study how lexical, dense, and graph-based retrievers behave as a corpus grows, using multi-hop queries over real financial disclosures. Our central finding is a scale effect: on a 4{,}123-chunk corpus of SEC filings, asset-manager earnings materials, and secondary-market reports, every one of four dense bi-encoders spanning 22M--109M parameters (MiniLM-L6, E5-base, BGE-base, GTE-base) loses far more multi-hop HR@5 than BM25 as the pool grows from 100 to 4{,}123 chunks ($-$0.310 to $-$0.500 versus BM25's $-$0.100), with gold passages held in every subsample so that only distractor density varies. Testing four encoders rather than one establishes that this distractor-sensitivity is a property of dense retrieval on keyword-dense text, not an artifact of an outdated baseline. We further find that closed-pool encoder quality does not predict open-corpus performance: GTE-base is the strongest encoder on MuSiQue and the weakest on our financial corpus, a caution for practitioners selecting retrievers from leaderboard rankings.
 
-Against this backdrop we report a negative result for graph retrieval. Bipartite Personalized PageRank over an entity--passage graph, in the style of HippoRAG v2, does not beat a well-chosen dense encoder or BM25 at open-corpus scale: BM25 leads on multi-hop HR@5 (0.700) while the graph retriever reaches 0.600, tying BGE-base. Reciprocal Rank Fusion of BM25 and the graph retriever yields MRR 0.479 against BM25's 0.468, a difference whose paired-bootstrap 95\% CI is $[-0.163,+0.192]$ ($N{=}20$) and which we therefore report as suggestive rather than significant. A component-wise ablation of our alias-expanded seeding layer shows its total coverage gain is one question on 2WikiMultiHopQA and two on MuSiQue out of 200, that its substring-overlap pass is inert, and that the overlap-weighted teleport vector does most of the useful work. All results are computed by released code against real data and reproduce deterministically.
+Against this backdrop we report a negative result for graph retrieval. Bipartite Personalized PageRank over an entity--passage graph, in the style of HippoRAG v2, does not beat a well-chosen dense encoder or BM25 at open-corpus scale: BM25 leads on multi-hop HR@5 (0.700) while the graph retriever reaches 0.600, tying BGE-base. Reciprocal Rank Fusion of BM25 and the graph retriever yields MRR 0.479 against BM25's 0.468, a difference whose paired-bootstrap 95\% CI is $[-0.162,+0.194]$ ($N{=}20$, $B{=}10{,}000$, two-sided $p=0.90$) and which we therefore report as suggestive rather than significant. A component-wise ablation of our alias-expanded seeding layer shows its total coverage gain is one question on 2WikiMultiHopQA and two on MuSiQue out of 200, that its substring-overlap pass is inert, and that the overlap-weighted teleport vector does most of the useful work. All results are computed by released code against real data and reproduce deterministically.
 \end{abstract}
 
 \section{Introduction}
@@ -220,7 +220,7 @@ Second, \textbf{the graph retriever has no edge over a modern dense encoder}. Ag
 
 Third, \textbf{closed-pool encoder quality does not transfer to this domain}. GTE-base, the strongest encoder on MuSiQue (Table~\ref{tab:musique_2wiki}), is the weakest retriever here on multi-hop HR@5 (0.300, below even MiniLM's 0.450), while BGE-base is the strongest dense system in both regimes. Encoder choice on financial text is not predicted by general multi-hop QA benchmarks.
 
-Fourth, \textbf{Reciprocal Rank Fusion matches BM25's multi-hop HR@1 and produces a higher MRR} (0.479 vs.\ 0.468), but this $+$0.011 difference does not clear zero under a paired bootstrap (95\% CI $[-0.163,+0.192]$, $N{=}20$). Fusion does not lift HR@5 above BM25 (0.650 vs.\ 0.700). BM25 dominates at recall, and any graph contribution at the top of the ranking is small and, at this sample size, not distinguishable from zero.
+Fourth, \textbf{Reciprocal Rank Fusion matches BM25's multi-hop HR@1 and produces a higher MRR} (0.479 vs.\ 0.468), but this $+$0.011 difference does not clear zero under a paired bootstrap (95\% CI $[-0.162,+0.194]$, two-sided $p=0.90$, $N{=}20$, $B{=}10{,}000$). Fusion does not lift HR@5 above BM25 (0.650 vs.\ 0.700). BM25 dominates at recall, and any graph contribution at the top of the ranking is small and, at this sample size, not distinguishable from zero.
 
 Fifth, \textbf{entity-index quality is decisive}. The regex graph (Aethel-Reg) trails substantially (multi-hop HR@5 0.400), and an intermediate naive-spaCy variant failed almost entirely due to a context-dependent adjacency defect: edges were created only where the NER model re-extracted an entity's exact surface form, so ``NorthRiver'' and ``NorthRiver IV LP $\ldots$'' became disconnected nodes and propagation collapsed. Substring adjacency over a filtered entity set (dropping $\sim$20k OCR fragments and bare numerals from $\sim$27k raw extractions, leaving $\sim$6k clean entities) recovered the reported results. Any comparison of graph retrieval against other paradigms is contingent on this preprocessing.
 
@@ -254,7 +254,7 @@ Aethel-NER3     & All & 0.100 & 0.425 & 0.250 & 0.300 \\
 Hybrid-RRF & All & 0.275 & 0.475 & 0.367 & 0.388 \\
 \bottomrule
 \end{tabular}
-\caption{Open-corpus retrieval on 40 annotated queries (20 single-hop, 20 multi-hop) over a 4{,}123-chunk financial corpus. All systems retrieve over the identical index; gold passages frozen pre-retrieval; single annotator; preliminary. Hybrid-RRF fuses BM25 and Aethel-NER3 ranked lists (top-100 each) via Reciprocal Rank Fusion ($k{=}60$, the canonical untuned value from \citealp{cormack2009reciprocal}); $k$ was fixed before inspecting output. The Hybrid-RRF multi-hop MRR advantage over BM25 is $+$0.011, with a paired bootstrap 95\% CI of $[-0.163, +0.192]$ ($N{=}20$): suggestive, not significant. \textbf{Bold} = best per row-group. Aethel-NER3 figures carry $\le$0.025 variation across environments from spaCy NER nondeterminism; the table is regenerated from a single run.}
+\caption{Open-corpus retrieval on 40 annotated queries (20 single-hop, 20 multi-hop) over a 4{,}123-chunk financial corpus. All systems retrieve over the identical index; gold passages frozen pre-retrieval; single annotator; preliminary. Hybrid-RRF fuses BM25 and Aethel-NER3 ranked lists (top-100 each) via Reciprocal Rank Fusion ($k{=}60$, the canonical untuned value from \citealp{cormack2009reciprocal}); $k$ was fixed before inspecting output. The Hybrid-RRF multi-hop MRR advantage over BM25 is $+$0.011, with a paired bootstrap 95\% CI of $[-0.162, +0.194]$ (two-sided $p=0.90$, $N{=}20$, $B{=}10{,}000$): suggestive, not significant. The interval is regenerated by \texttt{backend/perquery\_rr.py} and cached in \texttt{backend/data/multihop\_rr\_bootstrap.json}. \textbf{Bold} = best per row-group. Aethel-NER3 figures carry $\le$0.025 variation across environments from spaCy NER nondeterminism; the table is regenerated from a single run.}
 \label{tab:financial_eval}
 \end{table}
 
@@ -285,46 +285,35 @@ To characterise how each retriever degrades as the corpus grows, we subsample th
     label style={font=\small},
     clip=false,
 ]
-%% TODO before submission: replace all inline coordinates below with
-%% \addplot table {scaling_results.dat} emitted directly by evaluate_aethel.py.
+%% Coordinates are read from scaling_results.dat, emitted by
+%% backend/scaling_curve.py (emit_pgfplots_dat). Do not hand-edit.
 %% BM25
-\addplot[aethelBlue!30, name path=bm25hi, draw=none]
-    coordinates {(100,0.832)(500,0.780)(1000,0.759)(2000,0.682)(4123,0.700)};
-\addplot[aethelBlue!30, name path=bm25lo, draw=none]
-    coordinates {(100,0.768)(500,0.740)(1000,0.661)(2000,0.618)(4123,0.700)};
+\addplot[aethelBlue!30, name path=bm25hi, draw=none] table[x=size,y=bm25hi] {scaling_results.dat};
+\addplot[aethelBlue!30, name path=bm25lo, draw=none] table[x=size,y=bm25lo] {scaling_results.dat};
 \addplot[aethelBlue!25, fill opacity=0.5] fill between[of=bm25hi and bm25lo];
-\addplot[aethelBlue, thick, solid, mark=*, mark size=2pt]
-    coordinates {(100,0.800)(500,0.760)(1000,0.710)(2000,0.650)(4123,0.700)};
+\addplot[aethelBlue, thick, solid, mark=*, mark size=2pt] table[x=size,y=bm25] {scaling_results.dat};
 \addlegendentry{BM25}
 %% Aethel-NER3
-\addplot[aethelpurple!30, name path=ner3hi, draw=none]
-    coordinates {(100,0.800)(500,0.695)(1000,0.680)(2000,0.630)(4123,0.600)};
-\addplot[aethelpurple!30, name path=ner3lo, draw=none]
-    coordinates {(100,0.800)(500,0.645)(1000,0.640)(2000,0.590)(4123,0.600)};
+\addplot[aethelpurple!30, name path=ner3hi, draw=none] table[x=size,y=ner3hi] {scaling_results.dat};
+\addplot[aethelpurple!30, name path=ner3lo, draw=none] table[x=size,y=ner3lo] {scaling_results.dat};
 \addplot[aethelpurple!25, fill opacity=0.5] fill between[of=ner3hi and ner3lo];
-\addplot[aethelpurple, thick, dashed, mark=square*, mark size=1.8pt]
-    coordinates {(100,0.800)(500,0.670)(1000,0.660)(2000,0.610)(4123,0.600)};
+\addplot[aethelpurple, thick, dashed, mark=square*, mark size=1.8pt] table[x=size,y=ner3] {scaling_results.dat};
 \addlegendentry{Aethel-NER3}
 %% MiniLM
-\addplot[aethelTeal!30, name path=densehi, draw=none]
-    coordinates {(100,0.860)(500,0.709)(1000,0.630)(2000,0.597)(4123,0.450)};
-\addplot[aethelTeal!30, name path=denselo, draw=none]
-    coordinates {(100,0.820)(500,0.611)(1000,0.590)(2000,0.523)(4123,0.450)};
+\addplot[aethelTeal!30, name path=densehi, draw=none] table[x=size,y=minilmhi] {scaling_results.dat};
+\addplot[aethelTeal!30, name path=denselo, draw=none] table[x=size,y=minilmlo] {scaling_results.dat};
 \addplot[aethelTeal!25, fill opacity=0.5] fill between[of=densehi and denselo];
-\addplot[aethelTeal, thick, dotted, mark=triangle*, mark size=2pt]
-    coordinates {(100,0.840)(500,0.660)(1000,0.610)(2000,0.560)(4123,0.450)};
+\addplot[aethelTeal, thick, dotted, mark=triangle*, mark size=2pt] table[x=size,y=minilm] {scaling_results.dat};
 \addlegendentry{Dense (MiniLM)}
 %% BGE-base
-\addplot[aethelTeal!70!black, thick, dashdotted, mark=diamond*, mark size=2pt]
-    coordinates {(100,0.910)(500,0.790)(1000,0.700)(2000,0.620)(4123,0.600)};
+\addplot[aethelTeal!70!black, thick, dashdotted, mark=diamond*, mark size=2pt] table[x=size,y=bge] {scaling_results.dat};
 \addlegendentry{Dense (BGE-base)}
 %% GTE-base
-\addplot[aethelTeal!55!red, thick, densely dotted, mark=o, mark size=2pt]
-    coordinates {(100,0.800)(500,0.670)(1000,0.520)(2000,0.410)(4123,0.300)};
+\addplot[aethelTeal!55!red, thick, densely dotted, mark=o, mark size=2pt] table[x=size,y=gte] {scaling_results.dat};
 \addlegendentry{Dense (GTE-base)}
 \end{axis}
 \end{tikzpicture}
-\caption{Multi-hop HR@5 as corpus size grows from 100 to 4{,}123 chunks, over the 20 multi-hop queries. Gold passages are retained in every subsample, so only distractor density varies. Bands show $\pm 1\sigma$ over 5 resamples (seed 42) for BM25, Aethel-NER3 and MiniLM; the full-corpus point is a single deterministic trial. E5-base is omitted for legibility (it tracks MiniLM closely: 0.800$\rightarrow$0.450). Every dense encoder degrades far more steeply than BM25 (0.800$\rightarrow$0.700, $-$0.100): MiniLM $-$0.390, E5-base $-$0.350, BGE-base $-$0.310, GTE-base $-$0.500. BGE-base leads all systems below 1{,}000 chunks (0.910 at 100) but converges to Aethel-NER3's 0.600 at full scale; GTE-base collapses hardest despite being the strongest encoder on the closed-pool benchmarks. The full-corpus Aethel-NER3 point (0.600) matches its multi-hop HR@5 in Table~\ref{tab:financial_eval}.}
+\caption{Multi-hop HR@5 as corpus size grows from 100 to 4{,}123 chunks, over the 20 multi-hop queries. Gold passages are retained in every subsample, so only distractor density varies. Bands show $\pm 1\sigma$ over 5 resamples (seed 42) for BM25, Aethel-NER3 and MiniLM; the full-corpus point is a single deterministic trial, so all bands close there. Aethel-NER3's band is zero-width at 100 chunks because all five resamples returned exactly 0.800, not because variance is unreported. Coordinates are read from \texttt{scaling\_results.dat}, emitted by \texttt{backend/scaling\_curve.py}, rather than transcribed by hand. E5-base is omitted for legibility (it tracks MiniLM closely: 0.800$\rightarrow$0.450). Every dense encoder degrades far more steeply than BM25 (0.800$\rightarrow$0.700, $-$0.100): MiniLM $-$0.390, E5-base $-$0.350, BGE-base $-$0.310, GTE-base $-$0.500. BGE-base leads all systems below 1{,}000 chunks (0.910 at 100) but converges to Aethel-NER3's 0.600 at full scale; GTE-base collapses hardest despite being the strongest encoder on the closed-pool benchmarks. The full-corpus Aethel-NER3 point (0.600) matches its multi-hop HR@5 in Table~\ref{tab:financial_eval}.}
 \label{fig:scaling}
 \end{figure}
 
@@ -420,7 +409,7 @@ Graph retrieval does not solve this. Bipartite PPR never overtakes BM25 at any t
 
 \section*{Limitations}
 
-\textbf{Sample size and annotation are the binding constraints.} Our open-corpus conclusions rest on 40 queries (20 multi-hop) labelled by a single annotator, with no inter-annotator agreement statistic. At $N{=}20$ the paired bootstrap interval on the fusion MRR difference spans $[-0.163,+0.192]$, wide enough to accommodate a substantial effect in either direction. Effect sizes here should be read as preliminary, and the scale-sensitivity curves in Figure~\ref{fig:scaling} inherit the same query set.
+\textbf{Sample size and annotation are the binding constraints.} Our open-corpus conclusions rest on 40 queries (20 multi-hop) labelled by a single annotator, with no inter-annotator agreement statistic. At $N{=}20$ the paired bootstrap interval on the fusion MRR difference spans $[-0.162,+0.194]$, wide enough to accommodate a substantial effect in either direction. Effect sizes here should be read as preliminary, and the scale-sensitivity curves in Figure~\ref{fig:scaling} inherit the same query set.
 
 \textbf{The scaling result is a single-corpus finding.} We demonstrate steeper dense degradation on one 4{,}123-chunk corpus of financial disclosures. The queries are proper-noun dense, which is precisely the condition that favours BM25, so the magnitude of the gap is likely specific to this text type. We claim the effect is not an artifact of a weak encoder; we do not claim it generalizes to corpora with different lexical properties, and testing that is the obvious next experiment.
 
@@ -503,7 +492,7 @@ This appendix documents the open-corpus benchmark in sufficient detail to recons
 
 The corpus comprises 4{,}123 chunks from three classes of source. \emph{Public filings}: SEC 10-K filings for NVIDIA and Salesforce, retrieved from EDGAR. \emph{Asset-manager earnings materials}: quarterly earnings releases and supplements for Blackstone and Apollo. \emph{Secondary-market advisory}: Jefferies secondary-market review reports. In addition, three synthetic fund documents were authored to mirror LP quarterly-reporting conventions (capital account statements, unfunded commitment schedules, NAV roll-forwards), since real LP letters are not publicly redistributable. Synthetic documents are labelled as such in the release and account for the fund-entity queries.
 
-Documents are converted to text and chunked to a target of roughly 512 tokens with sentence-boundary alignment. Table extraction is best-effort; chunks derived from tabular regions retain row structure as delimited text. No deduplication is applied beyond exact-match removal.
+Documents are converted to text and chunked to a target of 800 characters with 150 characters of overlap (\texttt{rag\_service.py}), with sentence-boundary alignment. Table extraction is best-effort; chunks derived from tabular regions retain row structure as delimited text. No deduplication is applied beyond exact-match removal.
 
 \subsection{Query Annotation Protocol}
 
@@ -519,7 +508,7 @@ The benchmark script also emits a Retrieval Token Overlap score (token-level F1 
 
 \subsection{Bootstrap Procedure}
 
-Confidence intervals on metric differences are computed by paired bootstrap over queries: 10{,}000 resamples with replacement from the 20 multi-hop queries, recomputing the metric difference on each resample, reporting the 2.5th and 97.5th percentiles. Both systems are evaluated on the same resampled query set in each iteration.
+Confidence intervals on metric differences are computed by paired bootstrap over queries: 10{,}000 resamples with replacement from the 20 multi-hop queries, recomputing the metric difference on each resample, reporting the 2.5th and 97.5th percentiles. Both systems are evaluated on the same resampled query set in each iteration. This is implemented in \texttt{backend/perquery\_rr.py} (\texttt{paired\_bootstrap}, seed 42) and its output is cached to \texttt{backend/data/multihop\_rr\_bootstrap.json}, so the interval regenerates deterministically.
 
 \subsection{Reproduction}
 

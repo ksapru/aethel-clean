@@ -53,7 +53,7 @@ Multi-hop HR@5 as the corpus grows. Gold passages are retained in every subsampl
 | Aethel-NER3 | 0.150 | 0.600 | 0.360 | 0.350 | 0.425 | 0.250 |
 | Hybrid-RRF | 0.350 | 0.650 | **0.479** | 0.475 | 0.475 | 0.367 |
 
-**BM25 leads on multi-hop HR@5 (0.700).** The graph retriever reaches 0.600 — which *ties* BGE-base rather than beating dense retrieval, as earlier versions reported against MiniLM alone (0.450).
+**BM25 leads on multi-hop HR@5 (0.700).** The graph retriever reaches 0.600, tying BGE-base. Its margin over dense retrieval holds only against the weaker encoders (MiniLM and E5-base, both 0.450).
 
 ### 3. Closed-pool benchmarks
 
@@ -71,7 +71,7 @@ Multi-hop HR@5 as the corpus grows. Gold passages are retained in every subsampl
 
 BGE and E5 use their authors' prescribed query/passage instruction prefixes; omitting them materially understates both models.
 
-**All three base-size encoders match the graph retriever's 1.000 HR@5 on 2Wiki while scoring 20+ points higher on HR@1**, and BGE-base leads MuSiQue HR@5 by 10 points. Earlier versions of this README claimed HR@5 coverage as the graph's contribution; that held only against MiniLM and is withdrawn.
+**All three base-size encoders match the graph retriever's 1.000 HR@5 on 2Wiki while scoring 20+ points higher on HR@1**, and BGE-base leads MuSiQue HR@5 by 10 points. The graph retriever offers no coverage that dense retrieval does not also reach.
 
 ### 4. AES ablation
 
@@ -91,12 +91,12 @@ AES bundles three mechanisms. Each row adds exactly one, on top of exact entity 
 
 ## Limitations
 
-Open-corpus conclusions rest on **40 queries labelled by a single annotator**, with no inter-annotator agreement statistic. At N=20 multi-hop, the paired-bootstrap CI on the Hybrid-RRF vs BM25 MRR difference is [−0.163, +0.192] — wide enough to accommodate a substantial effect in either direction. The scaling result is a **single-corpus finding** on proper-noun-dense financial text, precisely the condition that favours BM25; we do not claim it generalizes to corpora with different lexical properties. See the Limitations section of `paper.tex` for the full list.
+Open-corpus conclusions rest on **40 queries labelled by a single annotator**, with no inter-annotator agreement statistic. At N=20 multi-hop, the paired-bootstrap CI on the Hybrid-RRF vs BM25 MRR difference is [−0.162, +0.194] (B=10,000, two-sided p=0.90) — wide enough to accommodate a substantial effect in either direction. Regenerate with `PYTHONPATH=. python3 backend/perquery_rr.py`. The scaling result is a **single-corpus finding** on proper-noun-dense financial text, precisely the condition that favours BM25; we do not claim it generalizes to corpora with different lexical properties. See the Limitations section of `paper.tex` for the full list.
 
 ## Reproducing
 
 ```bash
-git clone https://github.com/ksapru/aethel-clean.git
+git clone <repository-url>
 cd aethel-clean
 pip install -r requirements.txt
 

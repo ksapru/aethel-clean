@@ -1,9 +1,18 @@
 """
-Per-query reciprocal rank for BM25 and Hybrid-RRF on multi-hop queries.
-Prints raw RR values so the caller can run a bootstrap significance test.
+Per-query reciprocal rank for BM25 and Hybrid-RRF on multi-hop queries,
+plus the paired bootstrap CI on their MRR difference.
+
+The bootstrap was previously run outside the repository, which left the
+confidence interval quoted in the paper unreproducible. It is implemented
+here so the interval regenerates deterministically from the same per-query
+data, and is written to backend/data/multihop_rr_bootstrap.json.
 """
 import json, sys, time
 import numpy as np
+
+OUT = "/Users/krishsapru/aethel-clean/backend/data/multihop_rr_bootstrap.json"
+N_BOOT = 10000
+SEED = 42
 
 sys.path.append("/Users/krishsapru/aethel-clean")
 from backend.public_benchmark import SimpleDocument, _SparseRetriever
@@ -18,6 +27,35 @@ def rr(retrieved_cids, gold_ids):
         if cid in gold_ids:
             return 1.0 / (rank + 1)
     return 0.0
+
+
+def paired_bootstrap(a, b, n_boot=N_BOOT, seed=SEED):
+    """Paired bootstrap over queries of mean(b) - mean(a).
+
+    Both systems are scored on the SAME resampled query set in each iteration,
+    which is what makes the interval paired: it removes per-query difficulty
+    as a source of variance. Returns the observed difference, the percentile
+    95% CI, and a two-sided p-value.
+    """
+    rng = np.random.default_rng(seed)
+    a, b = np.asarray(a, dtype=float), np.asarray(b, dtype=float)
+    n = len(a)
+    observed = float(b.mean() - a.mean())
+    idx = rng.integers(0, n, size=(n_boot, n))
+    deltas = b[idx].mean(axis=1) - a[idx].mean(axis=1)
+    lo, hi = np.percentile(deltas, [2.5, 97.5])
+    # two-sided p: fraction of resamples on the far side of zero, doubled
+    p = 2.0 * min((deltas <= 0).mean(), (deltas >= 0).mean())
+    return {
+        "observed": round(observed, 4),
+        "ci_lo": round(float(lo), 4),
+        "ci_hi": round(float(hi), 4),
+        "p_two_sided": round(float(min(p, 1.0)), 4),
+        "n_queries": int(n),
+        "n_boot": int(n_boot),
+        "seed": int(seed),
+        "crosses_zero": bool(lo <= 0.0 <= hi),
+    }
 
 
 def main():
@@ -69,6 +107,32 @@ def main():
     print("BM25 per-query RRs:", [round(x, 4) for x in bm25_rrs])
     print("RRF  per-query RRs:", [round(x, 4) for x in rrf_rrs])
     print("Deltas (RRF-BM25): ", [round(r-b, 4) for b, r in zip(bm25_rrs, rrf_rrs)])
+    print()
+
+    bs = paired_bootstrap(bm25_rrs, rrf_rrs)
+    print(f"Paired bootstrap (N={bs['n_queries']} queries, B={bs['n_boot']}, seed={bs['seed']}):")
+    print(f"  observed MRR delta (RRF - BM25): {bs['observed']:+.4f}")
+    print(f"  95% CI: [{bs['ci_lo']:+.4f}, {bs['ci_hi']:+.4f}]")
+    print(f"  two-sided p: {bs['p_two_sided']:.4f}")
+    print(f"  CI crosses zero: {bs['crosses_zero']}")
+
+    payload = {
+        "meta": {
+            "description": "Paired bootstrap on the multi-hop MRR difference "
+                           "between Hybrid-RRF and BM25 over the open-corpus "
+                           "financial benchmark.",
+            "produced_by": "backend/perquery_rr.py",
+        },
+        "mrr": {"bm25": round(float(mb), 4), "hybrid_rrf": round(float(mr), 4)},
+        "per_query_rr": {
+            "bm25": [round(x, 4) for x in bm25_rrs],
+            "hybrid_rrf": [round(x, 4) for x in rrf_rrs],
+        },
+        "bootstrap": bs,
+    }
+    with open(OUT, "w") as f:
+        json.dump(payload, f, indent=2)
+    print(f"\nWritten to {OUT}")
 
 
 if __name__ == "__main__":
