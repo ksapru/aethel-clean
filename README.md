@@ -5,7 +5,7 @@
 
 Code, corpus and evaluation harness for the paper of the same name (`paper.tex`). The project is codenamed **Aethel**.
 
-We measure how lexical, dense, and graph-based retrievers degrade as a corpus grows, using multi-hop queries over real financial disclosures. **The headline result: every one of four dense bi-encoders spanning 22M–109M parameters loses far more multi-hop HR@5 than BM25 as the pool grows from 100 to 4,123 chunks (−0.310 to −0.500 versus BM25's −0.100).** Gold passages are held in every subsample, so only distractor density varies. Testing four encoders rather than one establishes this is not an artifact of a single outdated baseline.
+We measure how lexical, dense, and graph-based retrievers degrade as a corpus grows, using multi-hop queries over real financial disclosures. **The headline result: every one of four dense bi-encoders spanning 22M–109M parameters loses far more multi-hop HR@5 than BM25 as the pool grows from 100 to 4,123 chunks (−0.310 to −0.500 versus BM25's −0.100).** Gold passages are held in every subsample, so only distractor density varies. Testing four encoders rather than one establishes this is a property of off-the-shelf dense retrieval on this text, not an artifact of a single outdated baseline.
 
 All four are **general-domain encoders used off the shelf**, with no in-domain fine-tuning — hence the scoping in the title. Whether a retriever adapted to financial text degrades the same way is untested here, and is the most direct challenge to this result.
 
