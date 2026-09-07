@@ -35,7 +35,7 @@
 
 \renewcommand{\UrlFont}{\ttfamily\small}
 
-\title{Dense Retrieval Degrades Faster Than BM25 at Scale}
+\title{Off-the-Shelf Dense Retrieval Degrades Faster Than BM25 at Scale}
 
 \author{Anonymous Authors \\
   Affiliation Anonymous \\
@@ -48,7 +48,7 @@
 \maketitle
 
 \begin{abstract}
-We study how lexical, dense, and graph-based retrievers behave as a corpus grows, using multi-hop queries over real financial disclosures. Our central finding is a scale effect: on a 4{,}123-chunk corpus of SEC filings, asset-manager earnings materials, and secondary-market reports, every one of four dense bi-encoders spanning 22M--109M parameters (MiniLM-L6, E5-base, BGE-base, GTE-base) loses far more multi-hop HR@5 than BM25 as the pool grows from 100 to 4{,}123 chunks ($-$0.310 to $-$0.500 versus BM25's $-$0.100), with gold passages held in every subsample so that only distractor density varies. Testing four encoders rather than one establishes that this distractor-sensitivity is a property of dense retrieval on keyword-dense text, not an artifact of an outdated baseline. We further find that closed-pool encoder quality does not predict open-corpus performance: GTE-base is the strongest encoder on MuSiQue and the weakest on our financial corpus, a caution for practitioners selecting retrievers from leaderboard rankings.
+We study how lexical, dense, and graph-based retrievers behave as a corpus grows, using multi-hop queries over real financial disclosures. Our central finding is a scale effect: on a 4{,}123-chunk corpus of SEC filings, asset-manager earnings materials, and secondary-market reports, every one of four dense bi-encoders spanning 22M--109M parameters (MiniLM-L6, E5-base, BGE-base, GTE-base) loses far more multi-hop HR@5 than BM25 as the pool grows from 100 to 4{,}123 chunks ($-$0.310 to $-$0.500 versus BM25's $-$0.100), with gold passages held in every subsample so that only distractor density varies. Testing four encoders rather than one establishes that this distractor-sensitivity is not an artifact of a single outdated baseline. All four are general-domain encoders used off the shelf, with no in-domain fine-tuning; our claim is scoped accordingly, and whether a retriever adapted to financial text degrades the same way is untested here and is the most direct challenge to this result. We further find that closed-pool encoder quality does not predict open-corpus performance: GTE-base is the strongest encoder on MuSiQue and the weakest on our financial corpus, a caution for practitioners selecting retrievers from leaderboard rankings.
 
 Against this backdrop we report a negative result for graph retrieval. Bipartite Personalized PageRank over an entity--passage graph, in the style of HippoRAG v2, does not beat a well-chosen dense encoder or BM25 at open-corpus scale: BM25 leads on multi-hop HR@5 (0.700) while the graph retriever reaches 0.600, tying BGE-base. Reciprocal Rank Fusion of BM25 and the graph retriever yields MRR 0.479 against BM25's 0.468, a difference whose paired-bootstrap 95\% CI is $[-0.162,+0.194]$ ($N{=}20$, $B{=}10{,}000$, two-sided $p=0.90$) and which we therefore report as suggestive rather than significant. A component-wise ablation of our alias-expanded seeding layer shows its total coverage gain is one question on 2WikiMultiHopQA and two on MuSiQue out of 200, that its substring-overlap pass is inert, and that the overlap-weighted teleport vector does most of the useful work. All results are computed by released code against real data and reproduce deterministically.
 \end{abstract}
@@ -413,6 +413,8 @@ Graph retrieval does not solve this. Bipartite PPR never overtakes BM25 at any t
 
 \textbf{The scaling result is a single-corpus finding.} We demonstrate steeper dense degradation on one 4{,}123-chunk corpus of financial disclosures. The queries are proper-noun dense, which is precisely the condition that favours BM25, so the magnitude of the gap is likely specific to this text type. We claim the effect is not an artifact of a weak encoder; we do not claim it generalizes to corpora with different lexical properties, and testing that is the obvious next experiment.
 
+\textbf{All encoders are off-the-shelf and general-domain.} MiniLM-L6, E5-base, BGE-base and GTE-base are used as published, with no fine-tuning, adapter, or continued pretraining on financial text. Our claim is therefore about off-the-shelf dense retrieval, which is what a practitioner reaches for first, and not about dense retrieval in general. A domain-adapted bi-encoder might learn to separate the proper-noun-dense distractors that defeat these four, and testing one is the single most informative follow-up to this paper. We flag this as the strongest available objection to our central finding.
+
 \textbf{Corpus scale is modest.} 4{,}123 chunks is large relative to a closed candidate pool and small relative to production indices. Whether the curves in Figure~\ref{fig:scaling} continue, flatten, or invert beyond this range is untested.
 
 \textbf{Graph results are contingent on entity-index quality.} As Section~\ref{sec:open_corpus} documents, an intermediate NER-graph variant collapsed entirely due to an adjacency defect, and the reported results require substring adjacency over a filtered entity set. A different extraction pipeline could shift the graph numbers materially in either direction. Entity extraction also relies on the disciplined taxonomy of institutional financial documents; less structured inputs would introduce link noise.
@@ -492,7 +494,7 @@ This appendix documents the open-corpus benchmark in sufficient detail to recons
 
 The corpus comprises 4{,}123 chunks from three classes of source. \emph{Public filings}: SEC 10-K filings for NVIDIA and Salesforce, retrieved from EDGAR. \emph{Asset-manager earnings materials}: quarterly earnings releases and supplements for Blackstone and Apollo. \emph{Secondary-market advisory}: Jefferies secondary-market review reports. In addition, three synthetic fund documents were authored to mirror LP quarterly-reporting conventions (capital account statements, unfunded commitment schedules, NAV roll-forwards), since real LP letters are not publicly redistributable. Synthetic documents are labelled as such in the release and account for the fund-entity queries.
 
-Documents are converted to text and chunked to a target of 800 characters with 150 characters of overlap (\texttt{rag\_service.py}), with sentence-boundary alignment. Table extraction is best-effort; chunks derived from tabular regions retain row structure as delimited text. No deduplication is applied beyond exact-match removal.
+Documents are converted to text and chunked to a target of 800 characters with 150 characters of overlap using LangChain's \texttt{RecursiveCharacterTextSplitter} (\texttt{rag\_service.py}), which splits on a separator hierarchy of paragraph, line, space, then character. No sentence-boundary detection is applied. Table extraction is best-effort; chunks derived from tabular regions retain row structure as delimited text. No deduplication is applied beyond exact-match removal.
 
 \subsection{Query Annotation Protocol}
 
