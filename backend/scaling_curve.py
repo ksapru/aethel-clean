@@ -31,6 +31,7 @@ from backend.evaluate_aethel import (
 CHUNKS  = "/Users/krishsapru/aethel-clean/backend/data/processed_chunks.json"
 QUERIES = "/Users/krishsapru/aethel-clean/backend/data/eval_queries_gold.json"
 OUT     = "/Users/krishsapru/aethel-clean/backend/data/scaling_results.json"
+DAT_OUT = "/Users/krishsapru/aethel-clean/scaling_results.dat"
 
 SIZES    = [100, 500, 1000, 2000, 4123]
 N_TRIALS = 5    # resamples per non-full size
@@ -212,6 +213,42 @@ def hr_at_k(retrieved_cids: List[str], gold_ids: Set[str], k: int = 5) -> float:
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+# Column order for the pgfplots data file. Kept next to paper.tex so the
+# scaling figure reads its coordinates from measured output instead of
+# hardcoded literals.
+_DAT_SYSTEMS = [("bm25", "bm25"), ("ner3", "ner3"), ("dense", "minilm"),
+                ("dense_bge", "bge"), ("dense_e5", "e5"), ("dense_gte", "gte")]
+
+
+def emit_pgfplots_dat(summary=None, path=DAT_OUT):
+    """Write scaling_results.dat for \\addplot table in the paper figure.
+
+    Emits mean, +1 sigma and -1 sigma columns per system so both the lines and
+    the uncertainty bands come from measured data.
+    """
+    if summary is None:
+        with open(OUT) as f:
+            summary = json.load(f)
+    cols = ["size"]
+    for _, short in _DAT_SYSTEMS:
+        cols += [short, f"{short}hi", f"{short}lo"]
+    lines = [" ".join(cols)]
+    for sz in SIZES:
+        row = [str(sz)]
+        for key, _ in _DAT_SYSTEMS:
+            if key not in summary:
+                row += ["nan", "nan", "nan"]
+                continue
+            e = summary[key][str(sz)] if str(sz) in summary[key] else summary[key][sz]
+            mean, std = e["mean"], e["std"]
+            row += [f"{mean:.4f}", f"{mean + std:.4f}", f"{mean - std:.4f}"]
+        lines.append(" ".join(row))
+    with open(path, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    print(f"pgfplots data written to {path}")
+    return path
+
+
 def main():
     print("=" * 70)
     print("Scaling curve: HR@5 vs corpus size — BM25 / Dense / Aethel-NER3")
@@ -402,7 +439,7 @@ def main():
     with open(OUT, "w") as f:
         json.dump(summary, f, indent=2)
     print(f"\nResults written to {OUT}")
-    print("Paste the contents of that file back to generate the pgfplots figure.")
+    emit_pgfplots_dat(summary)
 
 
 if __name__ == "__main__":

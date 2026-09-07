@@ -1,0 +1,66 @@
+{
+  "meta": {
+    "description": "Paired bootstrap on the multi-hop MRR difference between Hybrid-RRF and BM25 over the open-corpus financial benchmark.",
+    "produced_by": "backend/perquery_rr.py"
+  },
+  "mrr": {
+    "bm25": 0.4683,
+    "hybrid_rrf": 0.4792
+  },
+  "per_query_rr": {
+    "bm25": [
+      0.2,
+      1.0,
+      0.2,
+      1.0,
+      0.3333,
+      0.0,
+      1.0,
+      0.1,
+      1.0,
+      0.0,
+      0.0,
+      0.3333,
+      0.0,
+      0.0,
+      1.0,
+      0.2,
+      1.0,
+      1.0,
+      0.5,
+      0.5
+    ],
+    "hybrid_rrf": [
+      1.0,
+      1.0,
+      0.5,
+      0.0,
+      0.5,
+      0.25,
+      1.0,
+      0.0,
+      1.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      1.0,
+      0.5,
+      0.3333,
+      0.5
+    ]
+  },
+  "bootstrap": {
+    "observed": 0.0108,
+    "ci_lo": -0.1617,
+    "ci_hi": 0.1942,
+    "p_two_sided": 0.9036,
+    "n_queries": 20,
+    "n_boot": 10000,
+    "seed": 42,
+    "crosses_zero": true
+  }
+}
