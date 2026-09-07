@@ -11,13 +11,13 @@ Against that backdrop we report a **negative result for graph retrieval**: bipar
 
 > **Scope note.** The graph retriever is a reimplementation of the bipartite PPR retrieval stage of HippoRAG v2, not an extension of it. It does not use HippoRAG's LLM-based entity extraction, continual-memory components, or query-to-node linking. Differences from published HippoRAG numbers reflect the reimplementation and our regex-based entity extraction.
 
-## Architecture
+## The retriever under test
+
+The system evaluated in the paper has two components:
 
 1. **Bipartite Entity–Passage Graph** — entities (`V_e`) and passages (`V_p`) are vertices in a bipartite graph `G = (V_p ∪ V_e, E)`. Query entities seed a PPR random walk over sparse adjacency paths to rank passages.
 
 2. **Alias-Expanded Seeding (AES)** — expands the PPR personalization vector with alias matches and substring overlaps, seeding additional start nodes across entity variants (e.g. "Apollo" → "Apollo Global Management"). This is surface-form matching only: no mention-clustering, no pronoun resolution, no access to discourse structure. The ablation below shows its net contribution is one to two questions in 200.
-
-3. **Orchestrated Specialist Swarm** — retrieved passages are forwarded to domain-specialist agents (Liquidity, Valuation, Diligence Auditor) coordinated by an Orchestrator. Described in `backend/agents/` and `backend/main.py`; **not quantitatively evaluated** in the paper.
 
 ## Results
 
@@ -127,9 +127,15 @@ git show 3863346:backend/public_benchmark.py > /tmp/orig_pb.py
 PYTHONPATH=. python3 backend/test_aes_refactor.py --orig /tmp/orig_pb.py
 ```
 
-## Running the Diligence System
+## Also in this repo
 
-To run the multi-agent diligence pipeline against your own documents:
+Neither of these is part of the paper, and neither is evaluated. They are a demo application built on top of the retriever, not a contribution.
+
+- **Orchestrated specialist swarm** (`backend/agents/`, `backend/main.py`) — forwards retrieved passages to domain-specialist agents (Liquidity, Valuation, Diligence Auditor) under an Orchestrator.
+- **Web frontend** (`frontend/`) — Next.js UI for the diligence app.
+
+<details>
+<summary>Running the diligence demo</summary>
 
 1. Configure `.env` (see `.env.example`). `OPENAI_API_KEY` is required at startup because `RAGService.__init__` instantiates HippoRAG unconditionally:
    ```env
@@ -144,6 +150,8 @@ To run the multi-agent diligence pipeline against your own documents:
    ```bash
    PYTHONPATH=. python3 backend/main.py
    ```
+
+</details>
 
 ---
 
