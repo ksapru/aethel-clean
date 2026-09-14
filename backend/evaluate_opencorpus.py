@@ -1,5 +1,5 @@
 """
-Aethel Evaluation v3 — NER vocabulary + substring adjacency + entity filtering
+Open-corpus evaluation — NER vocabulary + substring adjacency + entity filtering
 
 Fix 1: Filter garbage entities (< 3 chars, OCR artifacts, pure numbers)
 Fix 2: Build adjacency via substring matching (like regex version) but using
@@ -10,18 +10,26 @@ Fix 2: Build adjacency via substring matching (like regex version) but using
 
 import json, re, sys, time
 import numpy as np
+
+import os
+from pathlib import Path
+
+# Repo root, derived from this file's location. Absolute paths were
+# previously hardcoded, which leaked the author's home directory into the
+# released source and made the scripts unrunnable outside one machine.
+_ROOT = Path(__file__).resolve().parents[1]
 from scipy.sparse import lil_matrix, diags
 from scipy.sparse import csr_matrix as _csr
 from typing import List, Dict, Set
 
-sys.path.append("/Users/krishsapru/aethel-clean")
+sys.path.insert(0, str(_ROOT))
 from backend.public_benchmark import (
     SimpleDocument, _SparseRetriever, _DenseRetriever, _GraphRetriever,
     DENSE_MODELS, DENSE_KEYS, _release_dense_model,
 )
 
-CHUNKS = "/Users/krishsapru/aethel-clean/backend/data/processed_chunks.json"
-QUERIES = "/Users/krishsapru/aethel-clean/backend/data/eval_queries_gold.json"
+CHUNKS = str(_ROOT / "backend/data/processed_chunks.json")
+QUERIES = str(_ROOT / "backend/data/eval_queries_gold.json")
 
 KEEP_LABELS = frozenset({"ORG", "PERSON", "GPE", "PRODUCT", "MONEY", "PERCENT",
                          "FAC", "EVENT", "WORK_OF_ART", "LAW", "NORP"})
@@ -304,15 +312,15 @@ def main():
         del retr
         _release_dense_model(key)
 
-    print(f"  {2 + n_dense}/{n_steps}  Aethel-Regex (original)...")
+    print(f"  {2 + n_dense}/{n_steps}  Graph-Regex (original)...")
     graph_regex = _GraphRetriever(docs)
-    print(f"  {3 + n_dense}/{n_steps}  Aethel-NERv3 (filtered NER + substring adjacency)...")
+    print(f"  {3 + n_dense}/{n_steps}  Graph-NERv3 (filtered NER + substring adjacency)...")
     graph_ner = _NERv3Retriever(docs)
     print(f"  {4 + n_dense}/{n_steps}  Hybrid-RRF (BM25 + NER3 fusion, computed post-retrieval)")
 
     print(f"\nRunning {len(queries)} queries...\n")
 
-    # Dense / Aethel-Reg are individual baselines only (k=10 for scoring).
+    # Dense / Graph-Reg are individual baselines only (k=10 for scoring).
     # BM25 / NER3 are ALSO the fusion inputs: retrieved at k=_RRF_POOL so
     # RRF sees the full ranked list before truncation.
     base_systems = {
@@ -325,8 +333,8 @@ def main():
             "precomputed": dense_rankings[label],
         }
     base_systems.update({
-        "Aethel-Reg":  {"ret": graph_regex, "graph": True,  "fusion": False},
-        "Aethel-NER3": {"ret": graph_ner,   "graph": True,  "fusion": True},
+        "Graph-Reg":  {"ret": graph_regex, "graph": True,  "fusion": False},
+        "Graph-NER3": {"ret": graph_ner,   "graph": True,  "fusion": True},
     })
     all_system_names = list(base_systems.keys()) + ["Hybrid-RRF"]
     results = {s: [] for s in all_system_names}
@@ -373,7 +381,7 @@ def main():
         # then truncate to top-10 for scoring.
         # k=_RRF_K=60 is the canonical untuned constant; not chosen to fit output.
         fused_idxs = rrf_fuse(
-            [fusion_inputs["BM25"], fusion_inputs["Aethel-NER3"]], top_k=10
+            [fusion_inputs["BM25"], fusion_inputs["Graph-NER3"]], top_k=10
         )
         fused_cids = [docs[i].metadata["chunk_id"] for i in fused_idxs]
         rrf_sc = {}
@@ -387,7 +395,7 @@ def main():
     # ── Report ───────────────────────────────────────────────────────
     order = (["BM25"]
              + [DENSE_MODELS[k]['label'] for k in DENSE_KEYS]
-             + ["Aethel-Reg", "Aethel-NER3", "Hybrid-RRF"])
+             + ["Graph-Reg", "Graph-NER3", "Hybrid-RRF"])
     print("\n" + "=" * 90)
     print("EVALUATION v3 — filtered NER + substring adjacency + Hybrid-RRF (BM25⊕NER3)")
     print("=" * 90 + "\n")

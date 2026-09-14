@@ -6,7 +6,7 @@
       "all": 40
     },
     "corpus_chunks": 4123,
-    "note": "Open-corpus retrieval over the 4,123-chunk financial corpus. Produced by backend/evaluate_aethel.py. Aethel-NER3 figures carry <=0.025 variation across environments from spaCy NER nondeterminism."
+    "note": "Open-corpus retrieval over the 4,123-chunk financial corpus. Produced by backend/evaluate_opencorpus.py. Graph-NER3 figures carry <=0.025 variation across environments from spaCy NER nondeterminism."
   },
   "results": {
     "multi_hop": {
@@ -50,7 +50,7 @@
         "mrr": 0.248,
         "recall5": 0.2
       },
-      "Aethel-Reg": {
+      "Graph-Reg": {
         "hr1": 0.05,
         "hr3": 0.25,
         "hr5": 0.4,
@@ -58,7 +58,7 @@
         "mrr": 0.175,
         "recall5": 0.2
       },
-      "Aethel-NER3": {
+      "Graph-NER3": {
         "hr1": 0.15,
         "hr3": 0.55,
         "hr5": 0.6,
@@ -116,7 +116,7 @@
         "mrr": 0.4,
         "recall5": 0.45
       },
-      "Aethel-Reg": {
+      "Graph-Reg": {
         "hr1": 0.0,
         "hr3": 0.15,
         "hr5": 0.15,
@@ -124,7 +124,7 @@
         "mrr": 0.067,
         "recall5": 0.15
       },
-      "Aethel-NER3": {
+      "Graph-NER3": {
         "hr1": 0.05,
         "hr3": 0.2,
         "hr5": 0.25,
@@ -182,7 +182,7 @@
         "mrr": 0.324,
         "recall5": 0.325
       },
-      "Aethel-Reg": {
+      "Graph-Reg": {
         "hr1": 0.025,
         "hr3": 0.2,
         "hr5": 0.275,
@@ -190,7 +190,7 @@
         "mrr": 0.121,
         "recall5": 0.175
       },
-      "Aethel-NER3": {
+      "Graph-NER3": {
         "hr1": 0.1,
         "hr3": 0.375,
         "hr5": 0.425,

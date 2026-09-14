@@ -10,16 +10,24 @@ data, and is written to backend/data/multihop_rr_bootstrap.json.
 import json, sys, time
 import numpy as np
 
-OUT = "/Users/krishsapru/aethel-clean/backend/data/multihop_rr_bootstrap.json"
+import os
+from pathlib import Path
+
+# Repo root, derived from this file's location. Absolute paths were
+# previously hardcoded, which leaked the author's home directory into the
+# released source and made the scripts unrunnable outside one machine.
+_ROOT = Path(__file__).resolve().parents[1]
+
+OUT = str(_ROOT / "backend/data/multihop_rr_bootstrap.json")
 N_BOOT = 10000
 SEED = 42
 
-sys.path.append("/Users/krishsapru/aethel-clean")
+sys.path.insert(0, str(_ROOT))
 from backend.public_benchmark import SimpleDocument, _SparseRetriever
-from backend.evaluate_aethel import _NERv3Retriever, rrf_fuse, _RRF_POOL
+from backend.evaluate_opencorpus import _NERv3Retriever, rrf_fuse, _RRF_POOL
 
-CHUNKS  = "/Users/krishsapru/aethel-clean/backend/data/processed_chunks.json"
-QUERIES = "/Users/krishsapru/aethel-clean/backend/data/eval_queries_gold.json"
+CHUNKS  = str(_ROOT / "backend/data/processed_chunks.json")
+QUERIES = str(_ROOT / "backend/data/eval_queries_gold.json")
 
 
 def rr(retrieved_cids, gold_ids):

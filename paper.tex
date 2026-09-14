@@ -161,7 +161,7 @@ MuSiQue stresses compositional retrieval: a single missing bridge passage breaks
 
 \subsection{Reproducibility}
 
-Closed-pool evaluations stream the official HuggingFace validation splits via the \texttt{datasets} library. To avoid external API dependencies, \texttt{public\_benchmark.py} implements PPR and AES as a self-contained evaluator using numpy sparse matrix-vector multiplication, with regex-based entity extraction over each question's provided paragraphs. The open-corpus evaluation is implemented in \texttt{evaluate\_opencorpus.py}. Results cache to \texttt{eval\_cache.json}; because PPR here is deterministic power iteration over a fixed graph and seed vector, re-runs are bit-identical. Appendix~\ref{sec:appendix_bench} documents the corpus construction, query annotation protocol, and metric definitions. Code and data are available at \url{ANONYMIZED-URL-HERE}.
+Closed-pool evaluations stream the official HuggingFace validation splits via the \texttt{datasets} library. To avoid external API dependencies, \texttt{public\_benchmark.py} implements PPR and AES as a self-contained evaluator using numpy sparse matrix-vector multiplication, with regex-based entity extraction over each question's provided paragraphs. The open-corpus evaluation is implemented in \texttt{evaluate\_opencorpus.py}. Results cache to \texttt{eval\_cache.json}; because PPR here is deterministic power iteration over a fixed graph and seed vector, re-runs are bit-identical. Appendix~\ref{sec:appendix_bench} documents the corpus construction, query annotation protocol, and metric definitions. Code and data are available at \url{https://anonymous.4open.science/r/ECIr_71FE/}.
 
 \section{Results}
 

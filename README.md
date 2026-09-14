@@ -3,7 +3,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-green.svg)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#)
 
-Code, corpus and evaluation harness for the paper of the same name (`paper.tex`). The project is codenamed **Aethel**.
+Code, corpus and evaluation harness for the paper of the same name (`paper.tex`).
 
 We measure how lexical, dense, and graph-based retrievers degrade as a corpus grows, using multi-hop queries over real financial disclosures. **The headline result: every one of four dense bi-encoders spanning 22M–109M parameters loses far more multi-hop HR@5 than BM25 as the pool grows from 100 to 4,123 chunks (−0.310 to −0.500 versus BM25's −0.100).** Gold passages are held in every subsample, so only distractor density varies. Testing four encoders rather than one establishes this is a property of off-the-shelf dense retrieval on this text, not an artifact of a single outdated baseline.
 
@@ -32,7 +32,7 @@ Multi-hop HR@5 as the corpus grows. Gold passages are retained in every subsampl
 | System | 100 | 500 | 1K | 2K | 4.1K | Δ |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
 | BM25 | 0.800 | 0.760 | 0.710 | 0.650 | 0.700 | **-0.100** |
-| Graph (Aethel-NER3) | 0.800 | 0.670 | 0.660 | 0.610 | 0.600 | **-0.200** |
+| Graph-NER3 | 0.800 | 0.670 | 0.660 | 0.610 | 0.600 | **-0.200** |
 | Dense (BGE-base, 109M) | 0.910 | 0.790 | 0.700 | 0.620 | 0.600 | **-0.310** |
 | Dense (E5-base, 109M) | 0.800 | 0.650 | 0.590 | 0.470 | 0.450 | **-0.350** |
 | Dense (MiniLM, 22M) | 0.840 | 0.660 | 0.610 | 0.560 | 0.450 | **-0.390** |
@@ -42,7 +42,7 @@ Multi-hop HR@5 as the corpus grows. Gold passages are retained in every subsampl
 
 ### 2. Open-corpus financial retrieval
 
-4,123-chunk corpus, 40 annotated queries (20 single-hop, 20 multi-hop). Gold labels frozen before any retriever ran.
+4,123-chunk corpus, 40 annotated queries (20 single-hop, 20 multi-hop). Gold labels recorded before any retriever ran; not preregistered.
 
 | System | Multi HR@1 | Multi HR@5 | Multi MRR | Multi R@5 | All HR@5 | All MRR |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -51,8 +51,8 @@ Multi-hop HR@5 as the corpus grows. Gold passages are retained in every subsampl
 | Dense (BGE-base) | 0.250 | 0.600 | 0.408 | 0.425 | 0.525 | 0.404 |
 | Dense (E5-base) | 0.200 | 0.450 | 0.315 | 0.300 | 0.475 | 0.319 |
 | Dense (GTE-base) | 0.200 | 0.300 | 0.248 | 0.200 | 0.375 | 0.324 |
-| Aethel-Reg | 0.050 | 0.400 | 0.175 | 0.200 | 0.275 | 0.121 |
-| Aethel-NER3 | 0.150 | 0.600 | 0.360 | 0.350 | 0.425 | 0.250 |
+| Graph-Reg | 0.050 | 0.400 | 0.175 | 0.200 | 0.275 | 0.121 |
+| Graph-NER3 | 0.150 | 0.600 | 0.360 | 0.350 | 0.425 | 0.250 |
 | Hybrid-RRF | 0.350 | 0.650 | **0.479** | 0.475 | 0.475 | 0.367 |
 
 **BM25 leads on multi-hop HR@5 (0.700).** The graph retriever reaches 0.600, tying BGE-base. Its margin over dense retrieval holds only against the weaker encoders (MiniLM and E5-base, both 0.450).
@@ -99,25 +99,25 @@ Open-corpus conclusions rest on **40 queries labelled by a single annotator**, w
 
 ```bash
 git clone <repository-url>
-cd aethel-clean
+cd <repository>
 pip install -r requirements.txt
 
 # Closed-pool benchmarks + AES ablation (tables 3 and 4)
 PYTHONPATH=. python3 backend/public_benchmark.py
 
 # Open-corpus evaluation (table 2)
-PYTHONPATH=. python3 backend/evaluate_aethel.py
+PYTHONPATH=. python3 backend/evaluate_opencorpus.py
 
 # Scale-sensitivity curve (table 1)
 PYTHONPATH=. python3 backend/scaling_curve.py
 ```
 
-Closed-pool results are cached in `eval_cache.json` for instant reproduction; delete it to recompute. PPR is deterministic power iteration over a fixed graph and seed vector, so graph results are bit-identical across runs. spaCy NER introduces ≤0.025 variation in Aethel-NER3 figures across environments.
+Closed-pool results are cached in `eval_cache.json` for instant reproduction; delete it to recompute. PPR is deterministic power iteration over a fixed graph and seed vector, so graph results are bit-identical across runs. spaCy NER introduces ≤0.025 variation in Graph-NER3 figures across environments.
 
 **On low-memory machines** (8 GB or less), the four encoders will exhaust RAM and swap-thrash. Force CPU and a smaller batch:
 
 ```bash
-AETHEL_DENSE_DEVICE=cpu AETHEL_DENSE_BATCH=8 PYTHONPATH=. python3 backend/evaluate_aethel.py
+RETRIEVAL_DENSE_DEVICE=cpu RETRIEVAL_DENSE_BATCH=8 PYTHONPATH=. python3 backend/evaluate_opencorpus.py
 ```
 
 ### Verifying the AES refactor

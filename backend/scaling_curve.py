@@ -1,5 +1,5 @@
 """
-scaling_curve.py — HR@5 vs. corpus size for BM25, Dense, Aethel-NER3.
+scaling_curve.py — HR@5 vs. corpus size for BM25, Dense, Graph-NER3.
 
 Design decisions (state in caption):
   - Gold passages are ALWAYS retained in every subsample.
@@ -16,22 +16,31 @@ Output: scaling_results.json
 """
 import json, re, sys, time
 import numpy as np
+
 from scipy.sparse import lil_matrix, diags
 from typing import List, Dict, Tuple, Set
 
-sys.path.append("/Users/krishsapru/aethel-clean")
+import os
+from pathlib import Path
+
+# Repo root, derived from this file's location. Absolute paths were
+# previously hardcoded, which leaked the author's home directory into the
+# released source and made the scripts unrunnable outside one machine.
+_ROOT = Path(__file__).resolve().parents[1]
+
+sys.path.insert(0, str(_ROOT))
 from backend.public_benchmark import (
     SimpleDocument, _SparseRetriever, DENSE_MODELS, DENSE_KEYS,
     _release_dense_model, DENSE_BATCH_SIZE,
 )
-from backend.evaluate_aethel import (
+from backend.evaluate_opencorpus import (
     KEEP_LABELS, _is_clean_entity, _RRF_POOL,
 )
 
-CHUNKS  = "/Users/krishsapru/aethel-clean/backend/data/processed_chunks.json"
-QUERIES = "/Users/krishsapru/aethel-clean/backend/data/eval_queries_gold.json"
-OUT     = "/Users/krishsapru/aethel-clean/backend/data/scaling_results.json"
-DAT_OUT = "/Users/krishsapru/aethel-clean/scaling_results.dat"
+CHUNKS  = str(_ROOT / "backend/data/processed_chunks.json")
+QUERIES = str(_ROOT / "backend/data/eval_queries_gold.json")
+OUT     = str(_ROOT / "backend/data/scaling_results.json")
+DAT_OUT = str(_ROOT / "scaling_results.dat")
 
 SIZES    = [100, 500, 1000, 2000, 4123]
 N_TRIALS = 5    # resamples per non-full size
@@ -83,7 +92,7 @@ class _SubsetNER3Retriever:
     Reuses pre-computed entity vocab (Phase 1 result) and rebuilds only the
     adjacency matrix (Phase 2) over the given subset of passages.
     Query logic is byte-for-byte identical to _NERv3Retriever.query() in
-    evaluate_aethel.py — three seeding passes + weighted teleport.
+    evaluate_opencorpus.py — three seeding passes + weighted teleport.
     """
 
     def __init__(self,
@@ -102,7 +111,7 @@ class _SubsetNER3Retriever:
         for k, i in key_to_idx.items():
             self.entities[i] = key_to_text[k]
 
-        # Alias map — identical to evaluate_aethel.py lines 150-156
+        # Alias map — identical to evaluate_opencorpus.py lines 150-156
         self._alias_map: Dict[str, int] = {}
         for ei, ent in enumerate(self.entities):
             key = ent.lower()
@@ -111,7 +120,7 @@ class _SubsetNER3Retriever:
             if len(words) > 1 and len(words[-1]) >= 4:
                 self._alias_map[words[-1].lower()] = ei
 
-        # Phase 2: rebuild adjacency on this subset (same algorithm as evaluate_aethel.py)
+        # Phase 2: rebuild adjacency on this subset (same algorithm as evaluate_opencorpus.py)
         total = np_ + ne
         self.total = total
         adj   = lil_matrix((total, total), dtype=np.float32)
@@ -127,7 +136,7 @@ class _SubsetNER3Retriever:
 
         adj_csr = adj.tocsr()
 
-        # Transition matrix — identical to evaluate_aethel.py lines 161-165
+        # Transition matrix — identical to evaluate_opencorpus.py lines 161-165
         rs     = np.asarray(adj_csr.sum(axis=1)).ravel()
         inv_rs = np.zeros_like(rs)
         nz     = rs > 0
@@ -172,7 +181,7 @@ class _SubsetNER3Retriever:
             return [self._docs[i].metadata["chunk_id"]
                     for i in range(min(k, len(self._docs)))]
 
-        # Weighted teleport — identical to evaluate_aethel.py lines 212-222
+        # Weighted teleport — identical to evaluate_opencorpus.py lines 212-222
         u = np.zeros(self.total, dtype=np.float32)
         if len(seeds) > 1:
             q_words = set(re.findall(r'[a-z]{4,}', q_lower))
@@ -186,7 +195,7 @@ class _SubsetNER3Retriever:
         else:
             u[self.np_ + seeds[0]] = 1.0
 
-        # PPR power iteration — identical to evaluate_aethel.py lines 226-229
+        # PPR power iteration — identical to evaluate_opencorpus.py lines 226-229
         alpha = 0.85
         v = u.copy()
         for _ in range(20):
@@ -251,7 +260,7 @@ def emit_pgfplots_dat(summary=None, path=DAT_OUT):
 
 def main():
     print("=" * 70)
-    print("Scaling curve: HR@5 vs corpus size — BM25 / Dense / Aethel-NER3")
+    print("Scaling curve: HR@5 vs corpus size — BM25 / Dense / Graph-NER3")
     print(f"  Sizes: {SIZES}   N_TRIALS: {N_TRIALS}   seed: 42")
     print(f"  Gold retention: YES (gold passages always in subset)")
     print("=" * 70)
