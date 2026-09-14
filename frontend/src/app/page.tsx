@@ -46,7 +46,7 @@ export default function Home() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
           <h1 style={{ fontSize: '1.4rem', fontWeight: 500, color: 'var(--ink)' }}>
-            Aethel Intelligence
+            Diligence Intelligence
           </h1>
           <nav style={{ display: 'flex', gap: '24px', fontSize: '15px', color: 'var(--ink-secondary)' }}>
             <span>Portfolio</span>
@@ -154,7 +154,7 @@ export default function Home() {
 
       <footer style={{ padding: '64px', borderTop: '1px solid var(--hairline)', background: 'var(--canvas)', color: 'var(--ink-mute)', fontSize: '13px' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between' }}>
-           <span>© 2026 Aethel Intelligence Financial Infrastructure for Secondaries.</span>
+           <span>© 2026 Financial Infrastructure for Secondaries.</span>
            <div style={{ display: 'flex', gap: '32px' }}>
              <span>Security</span>
              <span>Terms</span>
