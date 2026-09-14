@@ -36,7 +36,7 @@ class ChatOrchestrator:
         
         # 2. Determine agent persona (Routing)
         routing_prompt = ChatPromptTemplate.from_template("""
-        Given the user query, which Aethel Intelligence specialist is best suited to answer?
+        Given the user query, which specialist is best suited to answer?
         - Liquidity Agent: For unfunded commitments, cash flows, exits.
         - Valuation Agent: For NAV, multiples, fair value.
         - Leverage Agent: For debt, interest, credit.
@@ -53,7 +53,7 @@ class ChatOrchestrator:
         
         # 3. Generate response with persona
         prompt = ChatPromptTemplate.from_messages([
-            ("system", f"You are the {agent_name} at Aethel Intelligence. Answer the user's question using the provided document context. Be precise, institutional, and cite your sources."),
+            ("system", f"You are the {agent_name} on the diligence team. Answer the user's question using the provided document context. Be precise, institutional, and cite your sources."),
             MessagesPlaceholder(variable_name="history"),
             ("human", "Context:\n{context}\n\nQuestion: {query}")
         ])
@@ -83,7 +83,7 @@ class ChatOrchestrator:
         try:
             # 1. Route query
             routing_prompt = ChatPromptTemplate.from_template("""
-            Given the user query, which Aethel Intelligence specialist is best suited to answer?
+            Given the user query, which specialist is best suited to answer?
             - Liquidity Agent: For unfunded commitments, cash flows, exits.
             - Valuation Agent: For NAV, multiples, fair value.
             - Leverage Agent: For debt, interest, credit.
@@ -122,7 +122,7 @@ class ChatOrchestrator:
             
             yield f"data: {json.dumps({'type': 'thought', 'content': f'Synthesizing specialist response as {agent_name}...'})}\n\n"
             prompt = ChatPromptTemplate.from_messages([
-                ("system", f"You are the {agent_name} at Aethel Intelligence. Answer the user's question using the provided document context. IMPORTANT: If you see context from unrelated public companies (like Salesforce or Nvidia), prioritize the Private Equity fund documents (Letters, Continuation Reports) first. Be precise, institutional, and cite your sources."),
+                ("system", f"You are the {agent_name} on the diligence team. Answer the user's question using the provided document context. IMPORTANT: If you see context from unrelated public companies (like Salesforce or Nvidia), prioritize the Private Equity fund documents (Letters, Continuation Reports) first. Be precise, institutional, and cite your sources."),
                 MessagesPlaceholder(variable_name="history"),
                 ("human", "Context:\n{context}\n\nQuestion: {query}")
             ])
