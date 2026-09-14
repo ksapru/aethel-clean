@@ -137,19 +137,19 @@ def _get_dense_model(model_key: str = 'dense'):
         )
     if model_key not in _DENSE_MODEL_CACHE:
         from sentence_transformers import SentenceTransformer
-        # AETHEL_DENSE_DEVICE lets a memory-constrained host force 'cpu'.
+        # RETRIEVAL_DENSE_DEVICE lets a memory-constrained host force 'cpu'.
         # On small unified-memory Macs, MPS allocations compete with system
         # RAM and can push the process into swap thrash.
-        device = os.environ.get('AETHEL_DENSE_DEVICE') or None
+        device = os.environ.get('RETRIEVAL_DENSE_DEVICE') or None
         _DENSE_MODEL_CACHE[model_key] = SentenceTransformer(
             DENSE_MODELS[model_key]['model_name'], device=device
         )
     return _DENSE_MODEL_CACHE[model_key]
 
 
-# Encoding batch size. Lower it via AETHEL_DENSE_BATCH on low-RAM machines:
+# Encoding batch size. Lower it via RETRIEVAL_DENSE_BATCH on low-RAM machines:
 # activation memory scales with batch size and dominates weight memory.
-DENSE_BATCH_SIZE = int(os.environ.get('AETHEL_DENSE_BATCH', '32'))
+DENSE_BATCH_SIZE = int(os.environ.get('RETRIEVAL_DENSE_BATCH', '32'))
 
 
 def _release_dense_model(model_key: str) -> None:
@@ -175,7 +175,7 @@ def _release_dense_model(model_key: str) -> None:
 class _DenseRetriever:
     """Dense bi-encoder retriever.
 
-    Defaults to `all-MiniLM-L6-v2` so existing callers (e.g. evaluate_aethel.py)
+    Defaults to `all-MiniLM-L6-v2` so existing callers (e.g. evaluate_opencorpus.py)
     keep their previous behaviour unchanged.
     """
 
@@ -776,7 +776,7 @@ def evaluate_musique(n_questions: int = 200, seed: int = 42) -> Dict[str, Any]:
         _attach_seed_diagnostics(results[m], raw[m])
     results['n_questions'] = n
 
-    # Paired bootstrap: Aethel (PPR+AES) vs Bipartite PPR on per-question RTO
+    # Paired bootstrap: Graph (PPR+AES) vs Bipartite PPR on per-question RTO
     print(f"  Running paired bootstrap (B=1000) on MuSiQue RTO...")
     bootstrap = _bootstrap_rto_diff(
         rto_a=results['graph']['rto_list'],        # 0-100 scale
