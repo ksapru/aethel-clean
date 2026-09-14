@@ -1,6 +1,4 @@
-\documentclass[11pt]{article}
-\usepackage[review]{acl}
-\usepackage{latexsym}
+\documentclass[runningheads]{llncs}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{booktabs}
@@ -40,17 +38,13 @@ size bm25 bm25hi bm25lo ner3 ner3hi ner3lo minilm minilmhi minilmlo bge bgehi bg
 \definecolor{aethelBlue}{RGB}{37,99,235}
 \definecolor{aethelTeal}{RGB}{20,184,166}
 
-\arrayrulecolor{AethelNavy}
 
-\renewcommand{\UrlFont}{\ttfamily\small}
 
 \title{Off-the-Shelf Dense Retrieval Degrades Faster Than BM25 at Scale}
-
-\author{Anonymous Authors \\
-  Affiliation Anonymous \\
-  \texttt{anonymous@submission.org} \\}
-
-\date{}
+\titlerunning{Off-the-Shelf Dense Retrieval Degrades Faster at Scale}
+\author{Anonymous Author}
+\authorrunning{Anonymous}
+\institute{Anonymous Institution \email{anonymous@submission.org}}
 
 \begin{document}
 
@@ -60,6 +54,8 @@ size bm25 bm25hi bm25lo ner3 ner3hi ner3lo minilm minilmhi minilmlo bge bgehi bg
 We study how lexical, dense, and graph-based retrievers behave as a corpus grows, using multi-hop queries over real financial disclosures. Our central finding is a scale effect: on a 4{,}123-chunk corpus of SEC filings, asset-manager earnings materials, and secondary-market reports, every one of four dense bi-encoders spanning 22M--109M parameters (MiniLM-L6, E5-base, BGE-base, GTE-base) loses far more multi-hop HR@5 than BM25 as the pool grows from 100 to 4{,}123 chunks ($-$0.310 to $-$0.500 versus BM25's $-$0.100), with gold passages held in every subsample so that only distractor density varies. Testing four encoders rather than one establishes that this distractor-sensitivity is not an artifact of a single outdated baseline. All four are general-domain encoders used off the shelf, with no in-domain fine-tuning; our claim is scoped accordingly, and whether a retriever adapted to financial text degrades the same way is untested here and is the most direct challenge to this result. We further find that closed-pool encoder quality does not predict open-corpus performance: GTE-base is the strongest encoder on MuSiQue and the weakest on our financial corpus, a caution for practitioners selecting retrievers from leaderboard rankings.
 
 Against this backdrop we report a negative result for graph retrieval. Bipartite Personalized PageRank over an entity--passage graph, in the style of HippoRAG v2, does not beat a well-chosen dense encoder or BM25 at open-corpus scale: BM25 leads on multi-hop HR@5 (0.700) while the graph retriever reaches 0.600, tying BGE-base. Reciprocal Rank Fusion of BM25 and the graph retriever yields MRR 0.479 against BM25's 0.468, a difference whose paired-bootstrap 95\% CI is $[-0.162,+0.194]$ ($N{=}20$, $B{=}10{,}000$, two-sided $p=0.90$) and which we therefore report as suggestive rather than significant. A component-wise ablation of our alias-expanded seeding layer shows its total coverage gain is one question on 2WikiMultiHopQA and two on MuSiQue out of 200, that its substring-overlap pass is inert, and that the overlap-weighted teleport vector does most of the useful work. All results are computed by released code against real data and reproduce deterministically.
+
+\keywords{Dense retrieval \and BM25 \and Scale sensitivity \and Graph retrieval \and Negative results \and Reproducibility}
 \end{abstract}
 
 \section{Introduction}
@@ -68,7 +64,7 @@ Retrieval quality is usually reported at a fixed corpus size. Production systems
 
 Our setting is document-intensive financial diligence. Analysts cross-reference private Limited Partner (LP) letters, financial workbooks, capitalization structures, and public SEC filings to establish asset values, unfunded liabilities, and fund rules. The retrieval problem is multi-hop and cross-document: a target portfolio company may be named on page 1 of an asset ledger while the aggregate fund liability sits on page 12, with no lexical or contextual overlap between the two segments. This makes the domain a natural stress test, and its queries are unusually proper-noun dense, which turns out to matter.
 
-Dense Retrieval-Augmented Generation \cite{lewis2020rag, karpukhin2020dpr} maps chunks into a continuous embedding space and ranks by cosine similarity. Graph-Augmented RAG \cite{edge2024graphrag, peng2024graphrag} instead captures explicit entity linkages, transforming the document space into a topological network; HippoRAG \cite{gutierrez2024hipporag, gutierrez2025hipporag2} runs Personalized PageRank (PPR) \cite{page1999pagerank} over bipartite entity--passage graphs to resolve multi-hop queries without global graph clustering. The expectation in this literature is that graph retrieval should be least vulnerable to exactly the failure mode we probe, since relevance propagates through shared entities rather than through embedding proximity.
+Dense Retrieval-Augmented Generation \cite{lewis2020rag,karpukhin2020dpr} maps chunks into a continuous embedding space and ranks by cosine similarity. Graph-Augmented RAG \cite{edge2024graphrag,peng2024graphrag} instead captures explicit entity linkages, transforming the document space into a topological network; HippoRAG \cite{gutierrez2024hipporag,gutierrez2025hipporag2} runs Personalized PageRank (PPR) \cite{page1999pagerank} over bipartite entity--passage graphs to resolve multi-hop queries without global graph clustering. The expectation in this literature is that graph retrieval should be least vulnerable to exactly the failure mode we probe, since relevance propagates through shared entities rather than through embedding proximity.
 
 We test that expectation and find it does not hold on this corpus. Our contributions:
 
@@ -76,24 +72,23 @@ We test that expectation and find it does not hold on this corpus. Our contribut
     \item \textbf{A controlled scale-sensitivity experiment.} Subsampling a 4{,}123-chunk financial corpus to five sizes with gold passages always retained, we isolate distractor growth from answer presence. Every dense encoder tested degrades three to five times faster than BM25. Because the effect holds across a $5\times$ range in parameter count and across four independently trained encoders, it is a property of off-the-shelf dense retrieval on this text rather than a weak-baseline artifact.
     \item \textbf{A regime-transfer failure.} Encoder ranking on closed-pool multi-hop QA does not carry over to open-corpus financial retrieval: GTE-base is the best encoder on MuSiQue and the worst on our corpus.
     \item \textbf{A negative result for graph retrieval at scale.} Bipartite PPR does not beat BM25 at any tested corpus size, and ties rather than beats the strongest dense encoder at full scale. Reciprocal Rank Fusion leaves BM25's recall lead intact and produces an MRR difference not distinguishable from zero at $N{=}20$.
-    \item \textbf{A component-wise ablation of alias-expanded seeding (AES).} Decomposing our seeding layer shows substring-overlap seeding is inert, alias expansion buys coverage at up to 14 points of HR@1, and the overlap-weighted teleport vector --- the least prominent of the three mechanisms --- recovers most of that loss. The layer's total coverage gain is one to two questions in 200.
     \item \textbf{An open, reproducible benchmark.} A 4{,}123-chunk corpus of real disclosures with 40 annotated queries, and evaluation code that reproduces every number deterministically.
 \end{itemize}
 
-\paragraph{Relation to HippoRAG.} Our graph retriever is a reimplementation of the bipartite PPR retrieval stage of HippoRAG v2 \cite{gutierrez2025hipporag2}, not an extension of it. We reuse the entity--passage graph formulation and the PPR ranking step; we do not use its LLM-based entity extraction, its continual-memory components, or its query-to-node linking. The one addition we evaluate is the AES seeding layer (Section~\ref{sec:aes_ablation}), and the ablation there shows its contribution to be marginal. Differences between our closed-pool numbers and those reported by HippoRAG v2 should therefore be attributed to the reimplementation and to our regex-based entity extraction, not read as a comparison of the two systems.
+\paragraph{Relation to HippoRAG.} Our graph retriever is a reimplementation of the bipartite PPR retrieval stage of HippoRAG v2 \cite{gutierrez2025hipporag2}, not an extension of it. We reuse the entity--passage graph formulation and the PPR ranking step; we do not use its LLM-based entity extraction, its continual-memory components, or its query-to-node linking. The one addition we evaluate is the AES seeding layer, whose contribution an ablation released with the code shows to be marginal. Differences between our closed-pool numbers and those reported by HippoRAG v2 should therefore be attributed to the reimplementation and to our regex-based entity extraction, not read as a comparison of the two systems.
 
 \section{Related Work}
 \label{sec:related_work}
 
 Dense RAG frameworks rely on isolated semantic embeddings and degrade when queries span disjoint documents or require relational reasoning \cite{lewis2020rag}. Dense Passage Retrieval \cite{karpukhin2020dpr} established the bi-encoder formulation that the four baselines in this paper inherit.
 
-To bridge the relational gap, GraphRAG synthesizes global community summaries across hierarchical cluster maps \cite{edge2024graphrag}, at substantial computational and token cost on high-volume corpora. HippoRAG instead runs personalized PageRank directly over sparse bipartite entity--passage topologies, avoiding global summarization while retaining competitive structural retrieval \cite{gutierrez2025hipporag2}; a broader survey of the space is given by \citet{peng2024graphrag}. HybridRAG \cite{sarmah2024hybridrag} combines knowledge graphs with vector retrieval for financial and enterprise QA.
+To bridge the relational gap, GraphRAG synthesizes global community summaries across hierarchical cluster maps \cite{edge2024graphrag}, at substantial computational and token cost on high-volume corpora. HippoRAG instead runs personalized PageRank directly over sparse bipartite entity--passage topologies, avoiding global summarization while retaining competitive structural retrieval \cite{gutierrez2025hipporag2}; a broader survey of the space is given by Peng et al.~\cite{peng2024graphrag}. HybridRAG \cite{sarmah2024hybridrag} combines knowledge graphs with vector retrieval for financial and enterprise QA.
 
 Our open-corpus result stands in partial tension with HybridRAG's reported gains. Where they find a graph--vector combination helping on financial QA, we find the graph component does not beat BM25 alone at open-corpus scale. We attribute the difference primarily to corpus size and to the proper-noun density of our query set, which favours exact lexical matching; we do not claim their result fails to replicate in their setting.
 
 \section{Method}
 
-We define the graph retrieval architecture using standard bipartite notation, then describe the seeding layer whose components we ablate in Section~\ref{sec:aes_ablation}.
+We define the graph retrieval architecture using standard bipartite notation, then describe the seeding layer used by the graph retriever.
 
 \subsection{Bipartite Entity--Passage Graph}
 
@@ -141,62 +136,14 @@ Retrieval cost is $\mathcal{O}(I \cdot |\mathcal{E}|)$ in sparse matrix-vector p
 
 Each returned passage carries its source metadata, linked entities, and PPR score, so the entity--passage path that surfaced it can be inspected. We record this as a property of the representation, not as a measured benefit; we do not evaluate interpretability in this work.
 
-\Needspace{18\baselineskip}
-\begin{figure}[H]
-\centering
-\begin{tikzpicture}[
-  font=\footnotesize,
-  node distance=8mm and 14mm,
-  >=Stealth,
-  ent/.style={circle, draw=green!70!black, fill=green!12, minimum size=11mm, inner sep=0pt},
-  pas/.style={rectangle, draw=orange!80!black, fill=orange!12, rounded corners=3pt, minimum width=3.55cm, minimum height=10mm, text width=3.45cm, align=center},
-  query/.style={rectangle, draw=blue!70!black, fill=blue!10, rounded corners=3pt, minimum width=4.25cm, minimum height=10mm, align=center, font=\bfseries\footnotesize},
-  op/.style={rectangle, draw=purple!70!black, fill=purple!10, rounded corners=3pt, minimum width=4.25cm, minimum height=10mm, align=center, font=\bfseries\footnotesize},
-  edge/.style={draw=gray!55, line width=0.8pt},
-  hi/.style={draw=red!75!black, line width=1.4pt},
-  arrow/.style={->, draw=gray!80, line width=0.95pt},
-  pill/.style={fill=white, draw=gray!30, rounded corners=2pt, inner sep=1.2pt, font=\scriptsize, text=gray!70}
-]
 
-\node (q)   [query] {Multi-hop Query};
-\node (ppr) [op, below=of q] {PPR / SpMV Iteration};
-
-\node (e1) [ent, hi, below left=6mm and 14mm of ppr] {$e_1$};
-\node (e2) [ent, below=of e1] {$e_2$};
-\node (e3) [ent, hi, below=of e2] {$e_3$};
-
-\node (p1) [pas, hi, right=26mm of e1] {Passage $p_1$\\cap table};
-\node (p2) [pas, below=of p1] {Passage $p_2$\\NAV note};
-\node (p3) [pas, hi, below=of p2] {Passage $p_3$\\audit memo};
-
-\draw[edge, hi] (e1) to[bend left=12] (p1);
-\draw[edge] (e1) -- (p2);
-\draw[edge] (e2) -- (p2);
-\draw[edge] (e2) to[bend right=8] (p3);
-\draw[edge, hi] (e3) to[bend right=-8] (p1);
-\draw[edge, hi] (e3) -- (p3);
-
-\draw[arrow] (q) -- node[pill, pos=0.40, right=-8pt] {seed} (ppr);
-
-\draw[arrow] (ppr.west) -- ++(-6mm,0) |- node[pill, pos=0.25] {$\mathbf{s}$} (e1.east);
-
-\node (topk) [query, below=12mm of p3] {Top-$K$ Passages};
-\draw (p3.south) -- ++(0,-4mm) |- node[pill, pos=0.06] {rank by $\mathbf{p}$} (topk.north);
-
-\node[font=\scriptsize, text=gray!70, below=1mm of topk, text width=5.5cm, align=center]
-  {red = example 2-hop retrieval path:\\$e_1 \!\to\! p_1 \!\to\! e_3 \!\to\! p_3$};
-
-\end{tikzpicture}
-\caption{The retrieval mechanism under test. Query entities seed the personalization vector~$\mathbf{s}$; power iteration diffuses mass through entity--passage edges only. The red path illustrates a two-hop chain: $e_1$ activates $p_1$, which shares $e_3$, propagating mass to $p_3$. Passages are ranked by steady-state probability~$\mathbf{p}$. Sections~\ref{sec:open_corpus} and~\ref{sec:scaling} show this mechanism does not outperform lexical retrieval once the passage pool is large.}
-\label{fig:bipartite_ppr}
-\end{figure}
 
 \subsection{Alias-Expanded Seeding (AES)}
 \label{sec:aes}
 
 Exact entity matching often fails to seed the walk adequately when a query names an entity in a different surface form than the index. AES addresses this with three mechanisms, applied in order on top of exact matching: (i) \emph{alias expansion}, seeding additional entities via a surname/abbreviation map; (ii) \emph{substring overlap}, seeding entities that share $\ge$2 words of length $\ge$4 with the query, gated to fire only when fewer than two seeds were found; and (iii) an \emph{overlap-weighted teleport} vector, replacing uniform mass over seeds with weights proportional to query-word overlap.
 
-We note that this is surface-form matching, not coreference resolution: no mention-clustering or pronoun resolution is performed, and the mechanism has no access to discourse structure. Section~\ref{sec:aes_ablation} evaluates the three components separately.
+We note that this is surface-form matching, not coreference resolution: no mention-clustering or pronoun resolution is performed, and the mechanism has no access to discourse structure. A component-wise ablation, released with the code, shows the substring-overlap pass is inert and the overlap-weighted teleport does most of the useful work; the layer's total coverage gain is one to two questions in 200.
 
 \section{Experimental Setup}
 
@@ -204,7 +151,7 @@ We note that this is surface-form matching, not coreference resolution: no menti
 
 Our primary evaluation is an open-corpus benchmark of 4{,}123 chunks drawn from real financial disclosures: SEC 10-K filings (NVIDIA, Salesforce), asset-manager earnings materials (Blackstone, Apollo), and secondary-market advisory reports (Jefferies), together with three synthetic fund documents authored to mirror LP quarterly-reporting conventions. We annotate 40 queries (20 single-hop, 20 multi-hop), recording gold passage labels before any retriever is executed. These labels were not preregistered, so the ordering rests on author assertion rather than an external record (Appendix~\ref{sec:appendix_bench}). All systems retrieve over the identical index.
 
-We compare BM25; four dense bi-encoders (\texttt{all-MiniLM-L6-v2}, \texttt{e5-base-v2}, \texttt{bge-base-en-v1.5}, \texttt{gte-base}) with their authors' prescribed query/passage prefixes; a regex-graph retriever (Aethel-Reg); a filtered-NER graph retriever with substring adjacency (Aethel-NER3); and Reciprocal Rank Fusion of BM25 and Aethel-NER3 (Hybrid-RRF). Gold labels are single-annotator; we report effect sizes with bootstrap confidence intervals rather than significance thresholds, and treat these results as preliminary.
+We compare BM25; four dense bi-encoders (\texttt{all-MiniLM-L6-v2}, \texttt{e5-base-v2}, \texttt{bge-base-en-v1.5}, \texttt{gte-base}) with their authors' prescribed query/passage prefixes; a regex-graph retriever (Graph-Reg); a filtered-NER graph retriever with substring adjacency (Graph-NER3); and Reciprocal Rank Fusion of BM25 and Graph-NER3 (Hybrid-RRF). Gold labels are single-annotator; we report effect sizes with bootstrap confidence intervals rather than significance thresholds, and treat these results as preliminary.
 
 \subsection{Closed-Pool Evaluation Protocol}
 
@@ -214,7 +161,7 @@ MuSiQue stresses compositional retrieval: a single missing bridge passage breaks
 
 \subsection{Reproducibility}
 
-Closed-pool evaluations stream the official HuggingFace validation splits via the \texttt{datasets} library. To avoid external API dependencies, \texttt{public\_benchmark.py} implements PPR and AES as a self-contained evaluator using numpy sparse matrix-vector multiplication, with regex-based entity extraction over each question's provided paragraphs. The open-corpus evaluation is implemented in \texttt{evaluate\_aethel.py}. Results cache to \texttt{eval\_cache.json}; because PPR here is deterministic power iteration over a fixed graph and seed vector, re-runs are bit-identical. Appendix~\ref{sec:appendix_bench} documents the corpus construction, query annotation protocol, and metric definitions.
+Closed-pool evaluations stream the official HuggingFace validation splits via the \texttt{datasets} library. To avoid external API dependencies, \texttt{public\_benchmark.py} implements PPR and AES as a self-contained evaluator using numpy sparse matrix-vector multiplication, with regex-based entity extraction over each question's provided paragraphs. The open-corpus evaluation is implemented in \texttt{evaluate\_opencorpus.py}. Results cache to \texttt{eval\_cache.json}; because PPR here is deterministic power iteration over a fixed graph and seed vector, re-runs are bit-identical. Appendix~\ref{sec:appendix_bench} documents the corpus construction, query annotation protocol, and metric definitions. Code and data are available at \url{ANONYMIZED-URL-HERE}.
 
 \section{Results}
 
@@ -227,13 +174,13 @@ First, \textbf{BM25 is the strongest method overall on HR@5}, reflecting the pro
 
 Second, \textbf{the graph retriever has no edge over a modern dense encoder}. Against MiniLM the graph wins multi-hop recall decisively (0.600 vs.\ 0.450). Against BGE-base the two are tied at 0.600, and BGE-base leads on multi-hop MRR (0.408 vs.\ 0.360) and on every aggregate metric except recall. The graph retriever's apparent advantage over dense retrieval is confined to the weaker encoders.
 
-Third, \textbf{closed-pool encoder quality does not transfer to this domain}. GTE-base, the strongest encoder on MuSiQue (Table~\ref{tab:musique_2wiki}), is the weakest retriever here on multi-hop HR@5 (0.300, below even MiniLM's 0.450), while BGE-base is the strongest dense system in both regimes. Encoder choice on financial text is not predicted by general multi-hop QA benchmarks.
+Third, \textbf{closed-pool encoder quality does not transfer to this domain}. GTE-base, the strongest encoder on MuSiQue (Section~\ref{sec:musique_2wiki}), is the weakest retriever here on multi-hop HR@5 (0.300, below even MiniLM's 0.450), while BGE-base is the strongest dense system in both regimes. Encoder choice on financial text is not predicted by general multi-hop QA benchmarks.
 
 Fourth, \textbf{Reciprocal Rank Fusion matches BM25's multi-hop HR@1 and produces a higher MRR} (0.479 vs.\ 0.468), but this $+$0.011 difference does not clear zero under a paired bootstrap (95\% CI $[-0.162,+0.194]$, two-sided $p=0.90$, $N{=}20$, $B{=}10{,}000$). Fusion does not lift HR@5 above BM25 (0.650 vs.\ 0.700). BM25 dominates at recall, and any graph contribution at the top of the ranking is small and, at this sample size, not distinguishable from zero.
 
-Fifth, \textbf{entity-index quality is decisive}. The regex graph (Aethel-Reg) trails substantially (multi-hop HR@5 0.400), and an intermediate naive-spaCy variant failed almost entirely due to a context-dependent adjacency defect: edges were created only where the NER model re-extracted an entity's exact surface form, so ``NorthRiver'' and ``NorthRiver IV LP $\ldots$'' became disconnected nodes and propagation collapsed. Substring adjacency over a filtered entity set (dropping $\sim$20k OCR fragments and bare numerals from $\sim$27k raw extractions, leaving $\sim$6k clean entities) recovered the reported results. Any comparison of graph retrieval against other paradigms is contingent on this preprocessing.
+Fifth, \textbf{entity-index quality is decisive}. The regex graph (Graph-Reg) trails substantially (multi-hop HR@5 0.400), and an intermediate naive-spaCy variant failed almost entirely due to a context-dependent adjacency defect: edges were created only where the NER model re-extracted an entity's exact surface form, so ``NorthRiver'' and ``NorthRiver IV LP $\ldots$'' became disconnected nodes and propagation collapsed. Substring adjacency over a filtered entity set (dropping $\sim$20k OCR fragments and bare numerals from $\sim$27k raw extractions, leaving $\sim$6k clean entities) recovered the reported results. Any comparison of graph retrieval against other paradigms is contingent on this preprocessing.
 
-\paragraph{Qualitative example.} One multi-hop query illustrates the cross-document propagation fusion is designed to capture, while underscoring that it is a single case and not an aggregate effect. For \emph{``How do Blackstone and Apollo each characterize secondaries activity in their most recent results?''}, BM25 and the dense baseline anchor on Blackstone-internal chunks and do not surface the Apollo side. Aethel-NER3 retrieves the Apollo earnings passage by propagating from the shared \textsc{secondaries} entity to the otherwise disconnected Apollo document. The aggregate table shows this mechanism does not translate into a distinguishable gain on this corpus.
+\paragraph{Qualitative example.} One multi-hop query illustrates the cross-document propagation fusion is designed to capture, while underscoring that it is a single case and not an aggregate effect. For \emph{``How do Blackstone and Apollo each characterize secondaries activity in their most recent results?''}, BM25 and the dense baseline anchor on Blackstone-internal chunks and do not surface the Apollo side. Graph-NER3 retrieves the Apollo earnings passage by propagating from the shared \textsc{secondaries} entity to the otherwise disconnected Apollo document. The aggregate table shows this mechanism does not translate into a distinguishable gain on this corpus.
 
 \begin{table}[t]
 \centering
@@ -249,8 +196,8 @@ Dense MiniLM    & Multi & 0.200 & 0.450 & 0.318 & 0.275 \\
 Dense BGE-base  & Multi & 0.250 & 0.600 & 0.408 & 0.425 \\
 Dense E5-base   & Multi & 0.200 & 0.450 & 0.315 & 0.300 \\
 Dense GTE-base  & Multi & 0.200 & 0.300 & 0.248 & 0.200 \\
-Aethel-Reg      & Multi & 0.050 & 0.400 & 0.175 & 0.200 \\
-Aethel-NER3     & Multi & 0.150 & 0.600 & 0.360 & 0.350 \\
+Graph-Reg      & Multi & 0.050 & 0.400 & 0.175 & 0.200 \\
+Graph-NER3     & Multi & 0.150 & 0.600 & 0.360 & 0.350 \\
 Hybrid-RRF & Multi & \textbf{0.350} & 0.650 & \textbf{0.479} & 0.475 \\
 \midrule
 BM25            & All & 0.225 & \textbf{0.650} & 0.367 & \textbf{0.562} \\
@@ -258,12 +205,12 @@ Dense MiniLM    & All & 0.200 & 0.450 & 0.311 & 0.362 \\
 Dense BGE-base  & All & \textbf{0.300} & 0.525 & \textbf{0.404} & 0.438 \\
 Dense E5-base   & All & 0.200 & 0.475 & 0.319 & 0.400 \\
 Dense GTE-base  & All & 0.275 & 0.375 & 0.324 & 0.325 \\
-Aethel-Reg      & All & 0.025 & 0.275 & 0.121 & 0.175 \\
-Aethel-NER3     & All & 0.100 & 0.425 & 0.250 & 0.300 \\
+Graph-Reg      & All & 0.025 & 0.275 & 0.121 & 0.175 \\
+Graph-NER3     & All & 0.100 & 0.425 & 0.250 & 0.300 \\
 Hybrid-RRF & All & 0.275 & 0.475 & 0.367 & 0.388 \\
 \bottomrule
 \end{tabular}
-\caption{Open-corpus retrieval on 40 annotated queries (20 single-hop, 20 multi-hop) over a 4{,}123-chunk financial corpus. All systems retrieve over the identical index; gold passage labels recorded pre-retrieval but not preregistered (Appendix~\ref{sec:appendix_bench}); single annotator; preliminary. Hybrid-RRF fuses BM25 and Aethel-NER3 ranked lists (top-100 each) via Reciprocal Rank Fusion ($k{=}60$, the canonical untuned value from \citealp{cormack2009reciprocal}); $k$ was fixed before inspecting output. The Hybrid-RRF multi-hop MRR advantage over BM25 is $+$0.011, with a paired bootstrap 95\% CI of $[-0.162, +0.194]$ (two-sided $p=0.90$, $N{=}20$, $B{=}10{,}000$): suggestive, not significant. The interval is regenerated by \texttt{backend/perquery\_rr.py} and cached in \texttt{backend/data/multihop\_rr\_bootstrap.json}. \textbf{Bold} = best per row-group. Aethel-NER3 figures carry $\le$0.025 variation across environments from spaCy NER nondeterminism; the table is regenerated from a single run.}
+\caption{Open-corpus retrieval on 40 annotated queries (20 single-hop, 20 multi-hop) over a 4{,}123-chunk financial corpus. All systems retrieve over the identical index; gold passage labels recorded pre-retrieval but not preregistered (Appendix~\ref{sec:appendix_bench}); single annotator; preliminary. Hybrid-RRF fuses BM25 and Graph-NER3 ranked lists (top-100 each) via Reciprocal Rank Fusion ($k{=}60$, the canonical untuned value from \cite{cormack2009reciprocal}); $k$ was fixed before inspecting output. The Hybrid-RRF multi-hop MRR advantage over BM25 is $+$0.011, with a paired bootstrap 95\% CI of $[-0.162, +0.194]$ (two-sided $p=0.90$, $N{=}20$, $B{=}10{,}000$): suggestive, not significant. The interval is regenerated by \texttt{backend/perquery\_rr.py} and cached in \texttt{backend/data/multihop\_rr\_bootstrap.json}. \textbf{Bold} = best per row-group. Graph-NER3 figures carry $\le$0.025 variation across environments from spaCy NER nondeterminism; the table is regenerated from a single run.}
 \label{tab:financial_eval}
 \end{table}
 
@@ -276,7 +223,7 @@ To characterise how each retriever degrades as the corpus grows, we subsample th
 \centering
 \begin{tikzpicture}
 \begin{axis}[
-    width=\columnwidth, height=7.3cm, xmode=log, log basis x=10,
+    width=\textwidth, height=7.3cm, xmode=log, log basis x=10,
     xtick={100,500,1000,2000,4123}, xticklabels={100,500,1K,2K,4.1K},
     xlabel={Corpus size (chunks, log scale)}, ylabel={Multi-hop HR@5},
     ymin=0.25, ymax=1.02, ytick={0.3,0.4,0.5,0.6,0.7,0.8,0.9},
@@ -295,7 +242,7 @@ To characterise how each retriever degrades as the corpus grows, we subsample th
 \addplot[aethelpurple!30, name path=ner3lo, draw=none, forget plot] table[x=size,y=ner3lo] {\scalingdata};
 \addplot[aethelpurple!25, fill opacity=0.5, forget plot] fill between[of=ner3hi and ner3lo];
 \addplot[aethelpurple, thick, dashed, mark=square*, mark size=1.8pt] table[x=size,y=ner3] {\scalingdata};
-\addlegendentry{Aethel-NER3}
+\addlegendentry{Graph-NER3}
 \addplot[aethelTeal!30, name path=densehi, draw=none, forget plot] table[x=size,y=minilmhi] {\scalingdata};
 \addplot[aethelTeal!30, name path=denselo, draw=none, forget plot] table[x=size,y=minilmlo] {\scalingdata};
 \addplot[aethelTeal!25, fill opacity=0.5, forget plot] fill between[of=densehi and denselo];
@@ -307,7 +254,7 @@ To characterise how each retriever degrades as the corpus grows, we subsample th
 \addlegendentry{Dense (GTE-base)}
 \end{axis}
 \end{tikzpicture}
-\caption{Multi-hop HR@5 as corpus size grows from 100 to 4{,}123 chunks, over the 20 multi-hop queries. Gold passages are retained in every subsample, so only distractor density varies. Bands show $\pm 1\sigma$ over 5 resamples (seed 42) for BM25, Aethel-NER3 and MiniLM; the full-corpus point is a single deterministic trial, so all bands close there. Aethel-NER3's band is zero-width at 100 chunks because all five resamples returned exactly 0.800, not because variance is unreported. Coordinates are the verbatim contents of \texttt{scaling\_results.dat}, emitted by \texttt{backend/scaling\_curve.py} and inlined here so the source compiles standalone; they are not transcribed by hand. E5-base is omitted for legibility (it tracks MiniLM closely: 0.800$\rightarrow$0.450). Every dense encoder degrades far more steeply than BM25 (0.800$\rightarrow$0.700, $-$0.100): MiniLM $-$0.390, E5-base $-$0.350, BGE-base $-$0.310, GTE-base $-$0.500. BGE-base leads all systems below 1{,}000 chunks (0.910 at 100) but converges to Aethel-NER3's 0.600 at full scale; GTE-base collapses hardest despite being the strongest encoder on the closed-pool benchmarks. The full-corpus Aethel-NER3 point (0.600) matches its multi-hop HR@5 in Table~\ref{tab:financial_eval}.}
+\caption{Multi-hop HR@5 as corpus size grows from 100 to 4{,}123 chunks, over the 20 multi-hop queries. Gold passages are retained in every subsample, so only distractor density varies. Bands show $\pm 1\sigma$ over 5 resamples (seed 42) for BM25, Graph-NER3 and MiniLM; the full-corpus point is a single deterministic trial, so all bands close there. Graph-NER3's band is zero-width at 100 chunks because all five resamples returned exactly 0.800, not because variance is unreported. Coordinates are the verbatim contents of \texttt{scaling\_results.dat}, emitted by \texttt{backend/scaling\_curve.py} and inlined here so the source compiles standalone; they are not transcribed by hand. E5-base is omitted for legibility (it tracks MiniLM closely: 0.800$\rightarrow$0.450). Every dense encoder degrades far more steeply than BM25 (0.800$\rightarrow$0.700, $-$0.100): MiniLM $-$0.390, E5-base $-$0.350, BGE-base $-$0.310, GTE-base $-$0.500. BGE-base leads all systems below 1{,}000 chunks (0.910 at 100) but converges to Graph-NER3's 0.600 at full scale; GTE-base collapses hardest despite being the strongest encoder on the closed-pool benchmarks. The full-corpus Graph-NER3 point (0.600) matches its multi-hop HR@5 in Table~\ref{tab:financial_eval}.}
 \label{fig:scaling}
 \end{figure}
 
@@ -317,83 +264,14 @@ First, \textbf{BM25 leads from 1{,}000 chunks upward} (0.710 at 1{,}000 to 0.700
 
 Second, and most importantly, \textbf{the collapse of off-the-shelf dense retrieval at scale is not an artifact of a weak encoder}. Every encoder tested degrades far more steeply than BM25's $-$0.100 as the corpus grows from 100 to 4{,}123 chunks: MiniLM $-$0.390, E5-base $-$0.350, BGE-base $-$0.310, GTE-base $-$0.500. Scaling from 22M to 109M parameters shifts the curve upward but does not change its shape. As passages accumulate the embedding space becomes underdiscriminative and cosine similarity loses the ability to separate the target from semantically similar distractors. This is the paper's central finding, and testing four independently trained encoders across a $5\times$ parameter range is what makes it a claim about off-the-shelf dense retrieval on this text rather than about any one model. All four are general-domain; a domain-adapted encoder is untested.
 
-Third, \textbf{the graph's advantage over dense retrieval is encoder-dependent and disappears against the best encoder}. Aethel-NER3 (0.600 at full scale) overtakes MiniLM and E5-base (both 0.450) and GTE-base (0.300) by wide margins, but ties BGE-base at 0.600, having trailed it at every smaller pool size. The graph converges to parity at full scale rather than pulling ahead.
+Third, \textbf{the graph's advantage over dense retrieval is encoder-dependent and disappears against the best encoder}. Graph-NER3 (0.600 at full scale) overtakes MiniLM and E5-base (both 0.450) and GTE-base (0.300) by wide margins, but ties BGE-base at 0.600, having trailed it at every smaller pool size. The graph converges to parity at full scale rather than pulling ahead.
 
-The graph retriever is therefore not the system that best resists distractor growth --- BGE-base matches it, BM25 beats it. The robust scale effect here is the distractor-sensitivity of dense retrieval, and GTE-base illustrates that this sensitivity is not predicted by closed-pool skill: it is the best encoder in Table~\ref{tab:musique_2wiki} and the worst here.
+The graph retriever is therefore not the system that best resists distractor growth --- BGE-base matches it, BM25 beats it. The robust scale effect here is the distractor-sensitivity of dense retrieval, and GTE-base illustrates that this sensitivity is not predicted by closed-pool skill: it is the best encoder on MuSiQue and the worst here.
 
 \subsection{Closed-Pool Benchmarks}
 \label{sec:musique_2wiki}
 
-Table~\ref{tab:musique_2wiki} reports retrieval over each question's closed context pool of $\sim$10--20 paragraphs. Dense bi-encoders achieve very high absolute performance in this regime: GTE-base reaches 98.5\% HR@1 on 2WikiMultiHopQA and 82.5\% on MuSiQue. This is expected, since dense embeddings are effective at short-list ranking where the distractor pool is small and open-domain false positives are absent.
-
-Contemporary base-size encoders dominate the graph retriever here. On 2WikiMultiHopQA all three attain 100.0\% HR@5, matching PPR+AES, while reaching 96.0--98.5\% HR@1 against its 78.5\%. On MuSiQue the gap is wider: BGE-base reaches 98.5\% HR@5 against 88.5\%, and GTE-base leads on HR@1, HR@3, and MRR. The graph retriever offers no coverage that dense retrieval does not reach, and it trails badly on precision at a fraction of dense retrieval's engineering simplicity.
-
-Among the graph retrievers themselves, AES produces a precision--coverage tradeoff: coverage improves (HR@5 87.5$\rightarrow$88.5 on MuSiQue, 99.5$\rightarrow$100.0 on 2WikiMultiHopQA) at the cost of precision@1 (HR@1 57.0 vs.\ 63.0 on MuSiQue). On both datasets the coverage gain amounts to one additional question out of 200 and should not be read as a robust effect at this sample size. Section~\ref{sec:aes_ablation} decomposes where even that gain originates.
-
-These closed-pool numbers exist mainly to establish that our retrievers are correctly implemented and competitive in the regime the literature usually reports. Section~\ref{sec:scaling} shows the regime is not predictive: the encoder that wins here loses hardest at open-corpus scale.
-
-\subsection{AES Ablation}
-\label{sec:aes_ablation}
-
-Table~\ref{tab:aes_ablation} decomposes AES, adding one mechanism at a time on top of exact entity matching. Three findings emerge, two of them negative.
-
-First, \textbf{the substring-overlap pass contributes nothing}. On MuSiQue it is bit-identical to the preceding rung on every metric; on 2WikiMultiHopQA it adds 0.05 seeds per query and costs 0.5 points of HR@1 while leaving HR@5 unchanged. Its gating condition ($<$2 existing seeds) fires too rarely to matter once alias expansion is active. It should be removed from the method.
-
-Second, \textbf{alias expansion is the sole source of the HR@5 gain, and it is expensive}. It supplies the entire $+$0.5 point HR@5 improvement on 2Wiki and $+$0.5 of the $+$1.0 on MuSiQue, but costs 5.0 points of HR@1 on 2Wiki and 14.0 on MuSiQue. Mean seed count rises from 4.04 to 5.42 on MuSiQue: the additional seeds disperse PPR mass across more entities, surfacing one more gold passage within the top 5 while displacing the correct passage from rank 1 in 28 questions.
-
-Third, \textbf{the overlap-weighted teleport is the most valuable component}. It recovers 8.0 points of the HR@1 lost to alias expansion on MuSiQue (49.0$\rightarrow$57.0) and supplies the remaining $+$0.5 HR@5 without adding a single seed; it only redistributes teleport mass. Alias expansion over-seeds and the weighting partially corrects for it.
-
-We also equalized a confound: the exact-match path applied a loose word-overlap fallback when no seeds were found, while the AES path did not, so the two shipped configurations differed in an unintended fourth way. Equalizing changes nothing --- zero-seed queries never occur on either dataset (the fallback fires on 2 MuSiQue queries for the exact baseline only), and the equalized configuration reproduces the shipped one exactly. The asymmetry is inert here, though it would matter on a corpus with sparser entity coverage.
-
-The same diffusion dynamic that produces this closed-pool tradeoff becomes a liability at open-corpus scale, where mass spreads across too many candidate passages and precision falls below a lexical baseline (Table~\ref{tab:financial_eval}). Characterizing when diffusion helps versus hurts as a function of pool size is the natural follow-on.
-
-\begin{table*}[t]
-\centering
-\small
-\setlength{\tabcolsep}{5.5pt}
-\renewcommand{\arraystretch}{1.15}
-\begin{tabular}{@{}lccccccccc@{}}
-\toprule
-\textbf{Method} & \multicolumn{4}{c}{\textbf{2WikiMultiHopQA}} & & \multicolumn{4}{c}{\textbf{MuSiQue}} \\
-\cmidrule(lr){2-5} \cmidrule(lr){7-10}
- & \textbf{HR@1} & \textbf{HR@3} & \textbf{HR@5} & \textbf{MRR} & & \textbf{HR@1} & \textbf{HR@3} & \textbf{HR@5} & \textbf{MRR} \\
-\midrule
-Sparse (TF-IDF) & 79.0 & 96.5 & 99.0 & 0.873 & & 58.0 & 78.0 & 84.5 & 0.681 \\
-\midrule
-\multicolumn{10}{@{}l}{\emph{Dense bi-encoders}} \\
-\quad MiniLM-L6 (22M) & 90.0 & 99.0 & 99.5 & 0.940 & & 76.5 & 93.5 & 96.0 & 0.849 \\
-\quad E5-base (109M)  & 96.0 & \textbf{100.0} & \textbf{100.0} & 0.980 & & 74.0 & 91.5 & 96.5 & 0.834 \\
-\quad BGE-base (109M) & \textbf{98.5} & \textbf{100.0} & \textbf{100.0} & \textbf{0.993} & & 79.5 & 92.5 & \textbf{98.5} & 0.865 \\
-\quad GTE-base (109M) & \textbf{98.5} & \textbf{100.0} & \textbf{100.0} & \textbf{0.993} & & \textbf{82.5} & \textbf{95.0} & 98.0 & \textbf{0.888} \\
-\midrule
-Graph (PPR, exact match) & 83.0 & 97.0 & 99.5 & 0.900 & & 63.0 & 80.0 & 87.5 & 0.721 \\
-Graph (PPR + AES) & 78.5 & 98.0 & \textbf{100.0} & 0.877 & & 57.0 & 78.5 & 88.5 & 0.687 \\
-\bottomrule
-\end{tabular}
-\caption{Closed-pool retrieval on 200-question random samples (seed=42) from the official MuSiQue and 2WikiMultiHopQA validation splits. Retrieval is over each question's provided context pool ($\sim$10--20 paragraphs), not open-corpus. HR@$k$ = Hit Rate (\%). MRR = Mean Reciprocal Rank. \textbf{Bold} = best per column. Query/passage instruction prefixes are applied for BGE and E5 as specified by their authors; omitting them materially understates both models. AES improves the coverage of the graph retriever at the cost of precision@1, but base-size bi-encoders match or exceed that coverage while dominating HR@1. Computed by \texttt{public\_benchmark.py} against real HuggingFace data.}
-\label{tab:musique_2wiki}
-\end{table*}
-
-\begin{table*}[t]
-\centering
-\small
-\setlength{\tabcolsep}{5.5pt}
-\renewcommand{\arraystretch}{1.15}
-\begin{tabular}{@{}lccccccc@{}}
-\toprule
-\textbf{Configuration} & \multicolumn{3}{c}{\textbf{2WikiMultiHopQA}} & & \multicolumn{3}{c}{\textbf{MuSiQue}} \\
-\cmidrule(lr){2-4} \cmidrule(lr){6-8}
- & \textbf{seeds} & \textbf{HR@1} & \textbf{HR@5} & & \textbf{seeds} & \textbf{HR@1} & \textbf{HR@5} \\
-\midrule
-Exact match only (= Graph PPR)   & 3.28 & \textbf{83.0} & 99.5  & & 4.04 & \textbf{63.0} & 87.5 \\
-$+$ alias expansion              & 3.82 & 78.0 & \textbf{100.0} & & 5.42 & 49.0 & 88.0 \\
-$+$ substring overlap            & 3.87 & 77.5 & \textbf{100.0} & & 5.42 & 49.0 & 88.0 \\
-$+$ weighted teleport (= AES)    & 3.87 & 78.5 & \textbf{100.0} & & 5.42 & 57.0 & \textbf{88.5} \\
-\bottomrule
-\end{tabular}
-\caption{AES ablation. Each row adds exactly one mechanism to the row above; the final row is the full layer as shipped. \textbf{seeds} = mean number of PPR teleport seeds per query. The substring-overlap pass is inert (bit-identical on MuSiQue; $+$0.05 seeds and $-$0.5 HR@1 on 2Wiki). Alias expansion supplies the HR@5 gain but costs 5.0 (2Wiki) and 14.0 (MuSiQue) points of HR@1. The weighted teleport adds no seeds yet recovers 8.0 points of MuSiQue HR@1 and the final $+$0.5 HR@5, making it the single most valuable component. Total coverage gain is $+$0.5 (2Wiki) and $+$1.0 (MuSiQue) HR@5: one and two questions out of 200 respectively. Computed by \texttt{public\_benchmark.py}; each configuration is a flag setting on the same retriever, and the shipped configuration is reproduced bit-for-bit.}
-\label{tab:aes_ablation}
-\end{table*}
+For completeness we also evaluate over each question's closed context pool of $\sim$10--20 paragraphs on MuSiQue and 2WikiMultiHopQA. Dense bi-encoders are very strong in this regime: GTE-base reaches 98.5\% HR@1 on 2WikiMultiHopQA and 82.5\% on MuSiQue, and all three base-size encoders attain 100.0\% HR@5 on 2WikiMultiHopQA, matching PPR+AES while reaching 96.0--98.5\% HR@1 against its 78.5\%. The graph retriever offers no coverage that dense retrieval does not reach and trails badly on precision. These numbers exist mainly to establish that our retrievers are correctly implemented and competitive in the regime the literature usually reports; Section~\ref{sec:scaling} shows the regime is not predictive, since the encoder that wins here loses hardest at open-corpus scale. The full metric table is released with the code.
 
 \section{Conclusion}
 
@@ -413,70 +291,8 @@ Graph retrieval does not solve this. Bipartite PPR never overtakes BM25 at any t
 
 \textbf{Graph results are contingent on entity-index quality.} As Section~\ref{sec:open_corpus} documents, an intermediate NER-graph variant collapsed entirely due to an adjacency defect, and the reported results require substring adjacency over a filtered entity set. A different extraction pipeline could shift the graph numbers materially in either direction. Entity extraction also relies on the disciplined taxonomy of institutional financial documents; less structured inputs would introduce link noise.
 
-\textbf{Closed-pool results use samples, not full splits.} We evaluate 200-question random samples from the validation splits rather than full test sets, which limits absolute comparability with published system evaluations.
 
-\textbf{Implementation scope.} AES is implemented only in the standalone evaluator, not in the HippoRAG-backed production pipeline. We do not evaluate downstream answer quality, only retrieval, so we make no claim about how these retrieval differences propagate to end-task performance. We likewise assert but do not measure the interpretability of entity--passage traversal paths.
 
-\begin{thebibliography}{99}
-
-\bibitem[{Cormack et~al.(2009)}]{cormack2009reciprocal}
-Gordon~V. Cormack, Charles L.~A. Clarke, and Stefan Buettcher. 2009.
-\newblock Reciprocal rank fusion outperforms condorcet and individual rank learning methods.
-\newblock \emph{Proceedings of the 32nd International ACM SIGIR Conference on Research and Development in Information Retrieval (SIGIR 2009)}, pages 758--759.
-
-\bibitem[{Edge et~al.(2024)}]{edge2024graphrag}
-Darren Edge, Ha Trinh, Newman Cheng, Joshua Bradley, Alex Chao, Apurva Mody, Steven Truitt, Dasha Metropolitansky, Robert~Osazuwa Ness, and Jonathan Larson. 2024.
-\newblock From local to global: A graph RAG approach to query-focused summarization.
-\newblock \emph{arXiv preprint arXiv:2404.16130}.
-
-\bibitem[{Guti{\'e}rrez et~al.(2024)}]{gutierrez2024hipporag}
-Bernal~Jim{\'e}nez Guti{\'e}rrez, Yiheng Shu, Yu Gu, Michihiro Yasunaga, and Yu Su. 2024.
-\newblock Hippo{RAG}: Neurobiologically inspired long-term memory for large language models.
-\newblock \emph{Advances in Neural Information Processing Systems (NeurIPS 2024)}.
-
-\bibitem[{Guti{\'e}rrez et~al.(2025)}]{gutierrez2025hipporag2}
-Bernal~Jim{\'e}nez Guti{\'e}rrez, Yiheng Shu, Weijian Qi, Sizhe Zhou, and Yu Su. 2025.
-\newblock From {RAG} to memory: Non-parametric continual learning for large language models.
-\newblock \emph{Proceedings of the 42nd International Conference on Machine Learning (ICML 2025)}.
-
-\bibitem[{Ho et~al.(2020)}]{ho2020constructing}
-Xanh Ho, Anh-Khoa~Duong Nguyen, Saku Sugawara, and Akiko Aizawa. 2020.
-\newblock Constructing a multi-hop QA dataset for comprehensive evaluation of reasoning steps.
-\newblock \emph{Proceedings of the 28th International Conference on Computational Linguistics (COLING 2020)}, pages 6609--6625.
-
-\bibitem[{Karpukhin et~al.(2020)}]{karpukhin2020dpr}
-Vladimir Karpukhin, Barlas O{\u{g}}uz, Sewon Min, Patrick Lewis, Ledell Wu, Sergey Edunov, Danqi Chen, and Wen-tau Yih. 2020.
-\newblock Dense passage retrieval for open-domain question answering.
-\newblock \emph{Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP 2020)}, pages 6769--6781.
-
-\bibitem[{Lewis et~al.(2020)}]{lewis2020rag}
-Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir Karpukhin, Naman Goyal, Heinrich K{\"u}ttler, Mike Lewis, Wen-tau Yih, Tim Rockt{\"a}schel, Sebastian Riedel, and Douwe Kiela. 2020.
-\newblock Retrieval-augmented generation for knowledge-intensive NLP tasks.
-\newblock \emph{Advances in Neural Information Processing Systems (NeurIPS 2020)}.
-
-\bibitem[{Page et~al.(1999)}]{page1999pagerank}
-Lawrence Page, Sergey Brin, Rajeev Motwani, and Terry Winograd. 1999.
-\newblock The PageRank citation ranking: Bringing order to the web.
-\newblock \emph{Stanford InfoLab Technical Report}.
-
-\bibitem[{Peng et~al.(2024)}]{peng2024graphrag}
-Boci Peng, Yun Zhu, Yongchao Liu, Xiaohe Bo, Haizhou Shi, Chuntao Hong, Yan Zhang, and Siliang Tang. 2024.
-\newblock Graph retrieval-augmented generation: A survey.
-\newblock \emph{arXiv preprint arXiv:2408.08921}.
-
-\bibitem[{Sarmah et~al.(2024)}]{sarmah2024hybridrag}
-Bhaskarjit Sarmah, Benika Hall, Rohan Rao, Sunil Patel, Stefano Pasquali, and Dhagash Mehta. 2024.
-\newblock HybridRAG: Integrating knowledge graphs and vector retrieval augmented generation for efficient information extraction.
-\newblock \emph{Proceedings of the 5th ACM International Conference on AI in Finance (ICAIF 2024)}, pages 608--616.
-
-\bibitem[{Trivedi et~al.(2022)}]{trivedi2022musique}
-Harsh Trivedi, Niranjan Balasubramanian, Tushar Khot, and Ashish Sabharwal. 2022.
-\newblock MuSiQue: Multihop questions via single hop question composition.
-\newblock \emph{Transactions of the Association for Computational Linguistics (TACL)}, 10:539--554.
-
-\end{thebibliography}
-
-\clearpage
 \appendix
 
 \section{Benchmark Documentation}
@@ -496,18 +312,67 @@ Forty queries were written against the corpus by a single annotator: 20 single-h
 
 Labels were recorded before any retriever was executed against the corpus and were not revised after seeing retrieval output. We did not preregister them, so this rests on author assertion rather than an external record. Queries were written to reflect diligence questions (fee-related earnings, unfunded commitments, secondaries activity, NAV methodology) rather than to target any particular retrieval mechanism. We note the obvious limitation: single-annotator labels admit no agreement statistic, and the annotator was aware of the corpus composition.
 
-\subsection{Metric Definitions}
-
-\textbf{HR@$k$} (Hit Rate) is the fraction of queries for which at least one gold chunk appears in the top $k$. \textbf{R@$k$} (Recall) is the mean fraction of a query's gold chunks appearing in the top $k$; the two differ for multi-hop queries with multiple gold chunks, and R@5 is the stricter measure. \textbf{MRR} is the mean reciprocal rank of the first gold chunk.
-
-The benchmark script also emits a Retrieval Token Overlap score (token-level F1 between concatenated retrieved passages and the gold answer string). We exclude it from all tables: computed over full passages it conflates relevance with passage length and is not comparable across systems with different top-$K$ budgets.
-
 \subsection{Bootstrap Procedure}
 
 Confidence intervals on metric differences are computed by paired bootstrap over queries: 10{,}000 resamples with replacement from the 20 multi-hop queries, recomputing the metric difference on each resample, reporting the 2.5th and 97.5th percentiles. Both systems are evaluated on the same resampled query set in each iteration. This is implemented in \texttt{backend/perquery\_rr.py} (\texttt{paired\_bootstrap}, seed 42) and its output is cached to \texttt{backend/data/multihop\_rr\_bootstrap.json}, so the interval regenerates deterministically.
 
-\subsection{Reproduction}
+\begin{thebibliography}{11}
 
-\texttt{public\_benchmark.py} reproduces Tables~\ref{tab:musique_2wiki} and~\ref{tab:aes_ablation}; \texttt{evaluate\_aethel.py} reproduces Table~\ref{tab:financial_eval} and Figure~\ref{fig:scaling}. Ablation rows are flag settings on a single retriever implementation rather than separate code paths. PPR is deterministic power iteration over a fixed graph and seed vector, so graph results are bit-identical across runs; spaCy NER introduces variation of $\le$0.025 in Aethel-NER3 figures across environments, and all reported numbers come from a single run.
+\bibitem{cormack2009reciprocal}
+Gordon~V. Cormack, Charles L.~A. Clarke, and Stefan Buettcher. 2009.
+ Reciprocal rank fusion outperforms condorcet and individual rank learning methods.
+ \emph{Proceedings of the 32nd International ACM SIGIR Conference on Research and Development in Information Retrieval (SIGIR 2009)}, pages 758--759.
+
+\bibitem{edge2024graphrag}
+Darren Edge, Ha Trinh, Newman Cheng, Joshua Bradley, Alex Chao, Apurva Mody, Steven Truitt, Dasha Metropolitansky, Robert~Osazuwa Ness, and Jonathan Larson. 2024.
+ From local to global: A graph RAG approach to query-focused summarization.
+ \emph{arXiv preprint arXiv:2404.16130}.
+
+\bibitem{gutierrez2024hipporag}
+Bernal~Jim{\'e}nez Guti{\'e}rrez, Yiheng Shu, Yu Gu, Michihiro Yasunaga, and Yu Su. 2024.
+ Hippo{RAG}: Neurobiologically inspired long-term memory for large language models.
+ \emph{Advances in Neural Information Processing Systems (NeurIPS 2024)}.
+
+\bibitem{gutierrez2025hipporag2}
+Bernal~Jim{\'e}nez Guti{\'e}rrez, Yiheng Shu, Weijian Qi, Sizhe Zhou, and Yu Su. 2025.
+ From {RAG} to memory: Non-parametric continual learning for large language models.
+ \emph{Proceedings of the 42nd International Conference on Machine Learning (ICML 2025)}.
+
+\bibitem{ho2020constructing}
+Xanh Ho, Anh-Khoa~Duong Nguyen, Saku Sugawara, and Akiko Aizawa. 2020.
+ Constructing a multi-hop QA dataset for comprehensive evaluation of reasoning steps.
+ \emph{Proceedings of the 28th International Conference on Computational Linguistics (COLING 2020)}, pages 6609--6625.
+
+\bibitem{karpukhin2020dpr}
+Vladimir Karpukhin, Barlas O{\u{g}}uz, Sewon Min, Patrick Lewis, Ledell Wu, Sergey Edunov, Danqi Chen, and Wen-tau Yih. 2020.
+ Dense passage retrieval for open-domain question answering.
+ \emph{Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP 2020)}, pages 6769--6781.
+
+\bibitem{lewis2020rag}
+Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir Karpukhin, Naman Goyal, Heinrich K{\"u}ttler, Mike Lewis, Wen-tau Yih, Tim Rockt{\"a}schel, Sebastian Riedel, and Douwe Kiela. 2020.
+ Retrieval-augmented generation for knowledge-intensive NLP tasks.
+ \emph{Advances in Neural Information Processing Systems (NeurIPS 2020)}.
+
+\bibitem{page1999pagerank}
+Lawrence Page, Sergey Brin, Rajeev Motwani, and Terry Winograd. 1999.
+ The PageRank citation ranking: Bringing order to the web.
+ \emph{Stanford InfoLab Technical Report}.
+
+\bibitem{peng2024graphrag}
+Boci Peng, Yun Zhu, Yongchao Liu, Xiaohe Bo, Haizhou Shi, Chuntao Hong, Yan Zhang, and Siliang Tang. 2024.
+ Graph retrieval-augmented generation: A survey.
+ \emph{arXiv preprint arXiv:2408.08921}.
+
+\bibitem{sarmah2024hybridrag}
+Bhaskarjit Sarmah, Benika Hall, Rohan Rao, Sunil Patel, Stefano Pasquali, and Dhagash Mehta. 2024.
+ HybridRAG: Integrating knowledge graphs and vector retrieval augmented generation for efficient information extraction.
+ \emph{Proceedings of the 5th ACM International Conference on AI in Finance (ICAIF 2024)}, pages 608--616.
+
+\bibitem{trivedi2022musique}
+Harsh Trivedi, Niranjan Balasubramanian, Tushar Khot, and Ashish Sabharwal. 2022.
+ MuSiQue: Multihop questions via single hop question composition.
+ \emph{Transactions of the Association for Computational Linguistics (TACL)}, 10:539--554.
+
+\end{thebibliography}
 
 \end{document}
