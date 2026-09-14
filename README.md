@@ -23,7 +23,9 @@ The system evaluated in the paper has two components:
 
 ## Results
 
-Every table below is generated from committed result files — `eval_cache.json`, `backend/data/scaling_results.json`, and `backend/data/open_corpus_results.json` — and matches the corresponding table in `paper.tex`.
+Every table below is generated from committed result files — `eval_cache.json`, `backend/data/scaling_results.json`, and `backend/data/open_corpus_results.json`.
+
+The paper reports a subset: it carries the open-corpus table and the scale-sensitivity figure, and summarises the closed-pool and AES-ablation results in prose for space. Sections 3 and 4 below are the full versions of those, not additional experiments — the numbers are the same in both.
 
 ### 1. Scale sensitivity (headline result)
 
@@ -102,13 +104,13 @@ git clone <repository-url>
 cd <repository>
 pip install -r requirements.txt
 
-# Closed-pool benchmarks + AES ablation (tables 3 and 4)
+# Closed-pool benchmarks + AES ablation (sections 3 and 4 above)
 PYTHONPATH=. python3 backend/public_benchmark.py
 
-# Open-corpus evaluation (table 2)
+# Open-corpus evaluation (section 2 above)
 PYTHONPATH=. python3 backend/evaluate_opencorpus.py
 
-# Scale-sensitivity curve (table 1)
+# Scale-sensitivity curve (section 1 above)
 PYTHONPATH=. python3 backend/scaling_curve.py
 ```
 
@@ -125,9 +127,15 @@ RETRIEVAL_DENSE_DEVICE=cpu RETRIEVAL_DENSE_BATCH=8 PYTHONPATH=. python3 backend/
 AES is implemented as flags on a single retriever. `backend/test_aes_refactor.py` is a differential test proving the flag refactor reproduces the pre-refactor implementation exactly:
 
 ```bash
-git show 3863346:backend/public_benchmark.py > /tmp/orig_pb.py
+# Extract the pre-refactor implementation from any commit before the flag
+# refactor landed, then diff the two implementations over real questions:
+git show <pre-refactor-rev>:backend/public_benchmark.py > /tmp/orig_pb.py
 PYTHONPATH=. python3 backend/test_aes_refactor.py --orig /tmp/orig_pb.py
 ```
+
+This step needs git history, so it cannot be run from a source snapshot that
+ships without it. The flag settings it verifies are listed in `GRAPH_METHODS`
+in `backend/public_benchmark.py`; the shipped configuration is `graph_aes`.
 
 ## Also in this repo
 
