@@ -15,7 +15,7 @@ class DiligenceSynthesizer:
 
     def synthesize(self, specialist_findings: Dict[str, Any], metrics: Dict[str, Any]) -> str:
         prompt = ChatPromptTemplate.from_template("""
-        You are the Investment Committee Chair at Aethel Intelligence. Synthesize the findings from our specialist agents into a final IC Memo.
+        You are the Investment Committee Chair. Synthesize the findings from our specialist agents into a final IC Memo.
         
         SPECIALIST FINDINGS:
         {findings}
