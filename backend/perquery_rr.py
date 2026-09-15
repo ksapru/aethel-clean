@@ -24,7 +24,7 @@ SEED = 42
 
 sys.path.insert(0, str(_ROOT))
 from backend.public_benchmark import SimpleDocument, _SparseRetriever
-from backend.evaluate_opencorpus import _NERv3Retriever, rrf_fuse, _RRF_POOL
+from backend.evaluate_corpus import _NERv3Retriever, rrf_fuse, _RRF_POOL
 
 CHUNKS  = str(_ROOT / "backend/data/processed_chunks.json")
 QUERIES = str(_ROOT / "backend/data/eval_queries_gold.json")
