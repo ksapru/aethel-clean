@@ -108,7 +108,7 @@ pip install -r requirements.txt
 PYTHONPATH=. python3 backend/public_benchmark.py
 
 # Open-corpus evaluation (section 2 above)
-PYTHONPATH=. python3 backend/evaluate_opencorpus.py
+PYTHONPATH=. python3 backend/evaluate_corpus.py
 
 # Scale-sensitivity curve (section 1 above)
 PYTHONPATH=. python3 backend/scaling_curve.py
@@ -119,7 +119,7 @@ Closed-pool results are cached in `eval_cache.json` for instant reproduction; de
 **On low-memory machines** (8 GB or less), the four encoders will exhaust RAM and swap-thrash. Force CPU and a smaller batch:
 
 ```bash
-RETRIEVAL_DENSE_DEVICE=cpu RETRIEVAL_DENSE_BATCH=8 PYTHONPATH=. python3 backend/evaluate_opencorpus.py
+RETRIEVAL_DENSE_DEVICE=cpu RETRIEVAL_DENSE_BATCH=8 PYTHONPATH=. python3 backend/evaluate_corpus.py
 ```
 
 ### Verifying the AES refactor

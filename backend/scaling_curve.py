@@ -33,7 +33,7 @@ from backend.public_benchmark import (
     SimpleDocument, _SparseRetriever, DENSE_MODELS, DENSE_KEYS,
     _release_dense_model, DENSE_BATCH_SIZE,
 )
-from backend.evaluate_opencorpus import (
+from backend.evaluate_corpus import (
     KEEP_LABELS, _is_clean_entity, _RRF_POOL,
 )
 
@@ -92,7 +92,7 @@ class _SubsetNER3Retriever:
     Reuses pre-computed entity vocab (Phase 1 result) and rebuilds only the
     adjacency matrix (Phase 2) over the given subset of passages.
     Query logic is byte-for-byte identical to _NERv3Retriever.query() in
-    evaluate_opencorpus.py — three seeding passes + weighted teleport.
+    evaluate_corpus.py — three seeding passes + weighted teleport.
     """
 
     def __init__(self,
@@ -111,7 +111,7 @@ class _SubsetNER3Retriever:
         for k, i in key_to_idx.items():
             self.entities[i] = key_to_text[k]
 
-        # Alias map — identical to evaluate_opencorpus.py lines 150-156
+        # Alias map — identical to evaluate_corpus.py lines 150-156
         self._alias_map: Dict[str, int] = {}
         for ei, ent in enumerate(self.entities):
             key = ent.lower()
@@ -120,7 +120,7 @@ class _SubsetNER3Retriever:
             if len(words) > 1 and len(words[-1]) >= 4:
                 self._alias_map[words[-1].lower()] = ei
 
-        # Phase 2: rebuild adjacency on this subset (same algorithm as evaluate_opencorpus.py)
+        # Phase 2: rebuild adjacency on this subset (same algorithm as evaluate_corpus.py)
         total = np_ + ne
         self.total = total
         adj   = lil_matrix((total, total), dtype=np.float32)
@@ -136,7 +136,7 @@ class _SubsetNER3Retriever:
 
         adj_csr = adj.tocsr()
 
-        # Transition matrix — identical to evaluate_opencorpus.py lines 161-165
+        # Transition matrix — identical to evaluate_corpus.py lines 161-165
         rs     = np.asarray(adj_csr.sum(axis=1)).ravel()
         inv_rs = np.zeros_like(rs)
         nz     = rs > 0
@@ -181,7 +181,7 @@ class _SubsetNER3Retriever:
             return [self._docs[i].metadata["chunk_id"]
                     for i in range(min(k, len(self._docs)))]
 
-        # Weighted teleport — identical to evaluate_opencorpus.py lines 212-222
+        # Weighted teleport — identical to evaluate_corpus.py lines 212-222
         u = np.zeros(self.total, dtype=np.float32)
         if len(seeds) > 1:
             q_words = set(re.findall(r'[a-z]{4,}', q_lower))
@@ -195,7 +195,7 @@ class _SubsetNER3Retriever:
         else:
             u[self.np_ + seeds[0]] = 1.0
 
-        # PPR power iteration — identical to evaluate_opencorpus.py lines 226-229
+        # PPR power iteration — identical to evaluate_corpus.py lines 226-229
         alpha = 0.85
         v = u.copy()
         for _ in range(20):

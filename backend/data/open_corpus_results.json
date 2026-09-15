@@ -6,7 +6,7 @@
       "all": 40
     },
     "corpus_chunks": 4123,
-    "note": "Open-corpus retrieval over the 4,123-chunk financial corpus. Produced by backend/evaluate_opencorpus.py. Graph-NER3 figures carry <=0.025 variation across environments from spaCy NER nondeterminism."
+    "note": "Open-corpus retrieval over the 4,123-chunk financial corpus. Produced by backend/evaluate_corpus.py. Graph-NER3 figures carry <=0.025 variation across environments from spaCy NER nondeterminism."
   },
   "results": {
     "multi_hop": {

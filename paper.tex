@@ -161,7 +161,7 @@ MuSiQue stresses compositional retrieval: a single missing bridge passage breaks
 
 \subsection{Reproducibility}
 
-Closed-pool evaluations stream the official HuggingFace validation splits via the \texttt{datasets} library. To avoid external API dependencies, \texttt{public\_benchmark.py} implements PPR and AES as a self-contained evaluator using numpy sparse matrix-vector multiplication, with regex-based entity extraction over each question's provided paragraphs. The open-corpus evaluation is implemented in \texttt{evaluate\_opencorpus.py}. Results cache to \texttt{eval\_cache.json}; because PPR here is deterministic power iteration over a fixed graph and seed vector, re-runs are bit-identical. Appendix~\ref{sec:appendix_bench} documents the corpus construction, query annotation protocol, and metric definitions. Code and data are available at \url{https://anonymous.4open.science/r/aethel-clean-E1D7/}.
+Closed-pool evaluations stream the official HuggingFace validation splits via the \texttt{datasets} library. To avoid external API dependencies, \texttt{public\_benchmark.py} implements PPR and AES as a self-contained evaluator using numpy sparse matrix-vector multiplication, with regex-based entity extraction over each question's provided paragraphs. The open-corpus evaluation is implemented in \texttt{evaluate\_corpus.py}. Results cache to \texttt{eval\_cache.json}; because PPR here is deterministic power iteration over a fixed graph and seed vector, re-runs are bit-identical. Appendix~\ref{sec:appendix_bench} documents the corpus construction, query annotation protocol, and metric definitions. Code and data are available at \url{https://anonymous.4open.science/r/aethel-clean-E1D7/}.
 
 \section{Results}
 
@@ -316,6 +316,10 @@ Labels were recorded before any retriever was executed against the corpus and we
 
 Confidence intervals on metric differences are computed by paired bootstrap over queries: 10{,}000 resamples with replacement from the 20 multi-hop queries, recomputing the metric difference on each resample, reporting the 2.5th and 97.5th percentiles. Both systems are evaluated on the same resampled query set in each iteration. This is implemented in \texttt{backend/perquery\_rr.py} (\texttt{paired\_bootstrap}, seed 42) and its output is cached to \texttt{backend/data/multihop\_rr\_bootstrap.json}, so the interval regenerates deterministically.
 
+% References start on a fresh page so the 12-page content limit is
+% unambiguous: the appendix ends on page 12 and the bibliography, which
+% ECIR does not count toward the limit, begins on page 13.
+\clearpage
 \begin{thebibliography}{11}
 
 \bibitem{cormack2009reciprocal}

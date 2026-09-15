@@ -175,7 +175,7 @@ def _release_dense_model(model_key: str) -> None:
 class _DenseRetriever:
     """Dense bi-encoder retriever.
 
-    Defaults to `all-MiniLM-L6-v2` so existing callers (e.g. evaluate_opencorpus.py)
+    Defaults to `all-MiniLM-L6-v2` so existing callers (e.g. evaluate_corpus.py)
     keep their previous behaviour unchanged.
     """
 
